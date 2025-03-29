@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "dbscan",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/NSHipster/DBSCAN",
+      "state" : {
+        "revision" : "785f9dde344ead54132fed58611a35fec1fe82e5",
+        "version" : "0.0.2"
+      }
+    }
+  ],
+  "version" : 2
+}
