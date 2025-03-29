@@ -33,7 +33,7 @@ Add cluster map annotations to your SwiftUI Map
 
 4. To add the clusters, examine `clusterManager.clusters`. If the item count is one, add a non-cluster annotation to the map. If the count is greater than one, add a cluster annotation to the map.
 
-	```
+	```swift
     Map(position: $cameraPosition, interactionModes: .all) {
         ForEach(clusterManager.clusters) { cluster in
             if cluster.size == 1, let city = cluster.items.first {
@@ -53,7 +53,7 @@ Add cluster map annotations to your SwiftUI Map
 
 5. Add a call to `clusterManager.update` when the cluster annotations should update.  This usually happens in a Map modifier (.onAppear, .onChange, etc):
 
-	```
+	```swift
 	.onAppear {
         Task { @MainActor in
             cameraPosition = .region(mapRegion)
@@ -71,4 +71,4 @@ Add cluster map annotations to your SwiftUI Map
 	Please see `ContentView.swift` in this package for a more complete reference implementation.
 	
 	## Acknowledgements
-	This package was adapted from [https://medium.com/@stevenkish/coalescing-map-annotations-with-swiftui-5d7bdca567e8](https://medium.com/@stevenkish/coalescing-map-annotations-with-swiftui-5d7bdca567e8)
+	This package was adapted from [a Medium post by @stevenkish](https://medium.com/@stevenkish/coalescing-map-annotations-with-swiftui-5d7bdca567e8)
