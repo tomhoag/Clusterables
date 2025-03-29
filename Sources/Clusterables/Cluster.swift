@@ -51,10 +51,10 @@ public protocol Clusterable: Equatable  {
  */
 public protocol ClusterManagerProvider: View {
     /// The type of items that can be clustered.
-    associatedtype ClusterRepresentableType: Clusterable
+    associatedtype ClusterableType: Clusterable
     
     /// The cluster manager instance responsible for managing clusters.
-    var clusterManager: ClusterManager<ClusterRepresentableType> { get }
+    var clusterManager: ClusterManager<ClusterableType> { get }
 }
 
 /**
