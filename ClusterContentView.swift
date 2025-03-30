@@ -12,7 +12,7 @@ import Clusterables
 
 extension MichiganCity: @retroactive Clusterable {}
 
-struct ContentView: View, ClusterManagerProvider {    
+struct ClusterContentView: View, ClusterManagerProvider {
 
     @State var clusterManager = ClusterManager<MichiganCity>()
 
@@ -98,5 +98,5 @@ private struct ClusterAnnotationView: View {
 }
 
 #Preview {
-    ContentView()
+    ClusterContentView()
 }

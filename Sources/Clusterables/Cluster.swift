@@ -20,7 +20,7 @@ import simd
  
  ## Example
  ```swift
- struct MapPin: Clusterable {
+ struct city: Clusterable {
      let coordinate: CLLocationCoordinate2D
      let title: String
  }
@@ -39,7 +39,7 @@ public protocol Clusterable: Equatable  {
  ## Example
  ```swift
  struct MapView: View, ClusterManagerProvider {
-     @StateObject private var clusterManager = ClusterManager<MapPin>()
+     @State private var clusterManager = ClusterManager<MapPin>()
      
      var body: some View {
          Map { 
@@ -75,8 +75,8 @@ public protocol ClusterManagerProvider: View {
  */
 public struct Cluster<CR: Clusterable> : Identifiable {
     /// Unique identifier for the cluster.
-    public let id: UUID = UUID()
-    
+    public var id: UUID = UUID()
+
     /// The items contained within this cluster.
     public let items: [CR]
     
@@ -150,6 +150,7 @@ public class ClusterManager<CR: Clusterable> {
          - items: The items to cluster.
          - epsilon: The maximum distance between two items for them to be considered as part of the same cluster.
      */
+    @MainActor
     public func update(_ items: [CR], epsilon: Double) async {
         self.clusters = await makeClusters(items, epsilon: epsilon)
     }
@@ -162,6 +163,7 @@ public class ClusterManager<CR: Clusterable> {
          - mapProxy: The map proxy used to convert screen coordinates to geographic coordinates.
          - spacing: The desired spacing between clusters in screen points.
      */
+    @MainActor
     public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int) async {
         guard let distance = mapProxy.degrees(fromPixels: spacing) else { return }
         self.clusters = await makeClusters(items, epsilon: distance)
