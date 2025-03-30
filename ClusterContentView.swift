@@ -5,10 +5,10 @@
 //  Created by Tom Hoag on 3/28/25.
 //
 
-import SwiftUI
+import Clusterables
 import MapKit
 import MichiganCities
-import Clusterables
+import SwiftUI
 
 extension MichiganCity: @retroactive Clusterable {}
 
@@ -16,7 +16,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
     @State var clusterManager = ClusterManager<MichiganCity>()
 
-    @State var items:[MichiganCity] = MichiganCities.random(count: 1000) ?? []
+    @State var items: [MichiganCity] = MichiganCities.random(count: 1000) ?? []
     @State var cameraPosition: MapCameraPosition = .automatic
 
     private let spacing = 30
