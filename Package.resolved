@@ -1,5 +1,5 @@
 {
-  "originHash" : "9d885810a38074b1844b6875d791eb6fa5eb03f32e8b071be03d8fbb1ca3c552",
+  "originHash" : "a1b84eecad65e17e8221e93ba1b51c80bcae548e761813fe9cb0d96843e7ae7e",
   "pins" : [
     {
       "identity" : "dbscan",
@@ -8,15 +8,6 @@
       "state" : {
         "revision" : "785f9dde344ead54132fed58611a35fec1fe82e5",
         "version" : "0.0.2"
-      }
-    },
-    {
-      "identity" : "swiftlintplugin",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tomhoag/SwiftLintPlugin.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "80884c0f1b2f7804ec5bc9c2265b6bdfbcaca7db"
       }
     }
   ],

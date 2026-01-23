@@ -13,17 +13,13 @@ let package = Package(
             targets: ["Clusterables"])
     ],
     dependencies: [
-        .package(url: "https://github.com/NSHipster/DBSCAN", from: "0.0.2"),
-        .package(url: "https://github.com/tomhoag/SwiftLintPlugin.git", branch: "main"),
+        .package(url: "https://github.com/NSHipster/DBSCAN", from: "0.0.2")
     ],
     targets: [
         .target(
             name: "Clusterables",
             dependencies: [
                 .product(name: "DBSCAN", package: "DBSCAN")
-            ],
-            plugins: [
-                .plugin(name: "SwiftLintPlugin", package: "SwiftLintPlugin")
             ]
         )
     ]
