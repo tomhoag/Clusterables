@@ -7,10 +7,7 @@
 
 import Clusterables
 import MapKit
-import MichiganCities
 import SwiftUI
-
-extension MichiganCity: @retroactive Clusterable {}
 
 struct ClusterContentView: View, ClusterManagerProvider {
 
