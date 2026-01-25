@@ -67,8 +67,8 @@ Add cluster map annotations to your SwiftUI Map
     }
 	```
 	
-	## Reference Implementation
-	Please see `ContentView.swift` in this package for a more complete reference implementation.
+## Demo Implementation
+	Clone this repo and open Example/Example.xcodeproject for a demo implementation.
 	
-	## Acknowledgements
+## Acknowledgements
 	This package was adapted from [a Medium post by @stevenkish](https://medium.com/@stevenkish/coalescing-map-annotations-with-swiftui-5d7bdca567e8)
