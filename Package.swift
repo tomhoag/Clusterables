@@ -20,7 +20,8 @@ let package = Package(
             name: "Clusterables",
             dependencies: [
                 .product(name: "DBSCAN", package: "DBSCAN")
-            ]
+            ],
+            exclude: [ "Example/" ]
         )
     ]
 )
