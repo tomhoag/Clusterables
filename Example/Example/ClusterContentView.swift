@@ -11,9 +11,9 @@ import SwiftUI
 
 struct ClusterContentView: View, ClusterManagerProvider {
 
-    @State var clusterManager = ClusterManager<MichiganCity>()
+    @State var clusterManager = ClusterManager<City>()
 
-    @State var items: [MichiganCity] = MichiganCities.random(count: 1000) ?? []
+    @State var items: [City] = Bundle.main.decode("MichiganCities.json") ?? []
     @State var cameraPosition: MapCameraPosition = .automatic
 
     private let spacing = 30
@@ -65,19 +65,9 @@ struct ClusterContentView: View, ClusterManagerProvider {
         .padding()
     }
 
-    var mapRegion: MKCoordinateRegion {
-        // Center point between both peninsulas
-        let center = CLLocationCoordinate2D(
-            latitude: 43.802819,
-            longitude: -86.112938
-        )
-
-        // Span to show both peninsulas with some padding
-        let span = MKCoordinateSpan(
-            latitudeDelta: 6.0,
-            longitudeDelta: 8.0
-        )
-
+    var mapRegion:MKCoordinateRegion {
+        let center = items.centerCoordinateBoundingBox ?? CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5)
+        let span = MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
         return MKCoordinateRegion(center: center, span: span)
     }
 }
@@ -91,6 +81,36 @@ private struct ClusterAnnotationView: View {
             .symbolRenderingMode(.palette)
             .foregroundStyle(.white, .blue)
             .font(.largeTitle)
+    }
+}
+
+// Add a small Bundle helper to decode JSON files from the bundle into Decodable types.
+private extension Bundle {
+    func decode<T: Decodable>(_ resource: String) -> T? {
+        // Allow caller to pass either "MichiganCities.json" or just "MichiganCities"
+        let resourceName: String
+        let resourceExtension: String?
+        if resource.hasSuffix(".json") {
+            resourceName = String(resource.dropLast(5))
+            resourceExtension = "json"
+        } else {
+            resourceName = resource
+            resourceExtension = "json"
+        }
+
+        guard let url = self.url(forResource: resourceName, withExtension: resourceExtension) else {
+            print("Bundle.decode: resource not found: \(resource)")
+            return nil
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            print("Bundle.decode(\(resource)) failed: \(error)")
+            return nil
+        }
     }
 }
 

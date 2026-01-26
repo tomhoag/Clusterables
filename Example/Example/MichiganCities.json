@@ -1,0 +1,387 @@
+[
+  {
+    "coordinate" : {
+      "latitude" : 41.8975,
+      "longitude" : -84.0372
+    },
+    "name" : "Adrian"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2431,
+      "longitude" : -84.753
+    },
+    "name" : "Albion"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.0617,
+      "longitude" : -83.4327
+    },
+    "name" : "Alpena"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2808,
+      "longitude" : -83.743
+    },
+    "name" : "Ann Arbor"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.5945,
+      "longitude" : -83.8889
+    },
+    "name" : "Bay City"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.1167,
+      "longitude" : -86.4542
+    },
+    "name" : "Benton Harbor"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4987,
+      "longitude" : -83.1835
+    },
+    "name" : "Berkley"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.6981,
+      "longitude" : -85.4837
+    },
+    "name" : "Big Rapids"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.5467,
+      "longitude" : -83.2115
+    },
+    "name" : "Birmingham"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.5837,
+      "longitude" : -83.2454
+    },
+    "name" : "Bloomfield Hills"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 44.2517,
+      "longitude" : -85.4012
+    },
+    "name" : "Cadillac"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.3181,
+      "longitude" : -85.2584
+    },
+    "name" : "Charlevoix"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.3181,
+      "longitude" : -84.0208
+    },
+    "name" : "Chelsea"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.5339,
+      "longitude" : -83.1463
+    },
+    "name" : "Clawson"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.3223,
+      "longitude" : -83.1763
+    },
+    "name" : "Dearborn"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.3314,
+      "longitude" : -83.0458
+    },
+    "name" : "Detroit"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.7368,
+      "longitude" : -84.4837
+    },
+    "name" : "East Lansing"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.466595,
+      "longitude" : -82.959213
+    },
+    "name" : "East Pointe"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2543,
+      "longitude" : -83.1499
+    },
+    "name" : "Ecorse"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.7453,
+      "longitude" : -87.0646
+    },
+    "name" : "Escanaba"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.79781,
+      "longitude" : -83.70495
+    },
+    "name" : "Fenton"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4606,
+      "longitude" : -83.1346
+    },
+    "name" : "Ferndale"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.0125,
+      "longitude" : -83.6875
+    },
+    "name" : "Flint"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.9634,
+      "longitude" : -85.6681
+    },
+    "name" : "Grand Rapids"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.0631,
+      "longitude" : -86.2285
+    },
+    "name" : "Grand Haven"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 47.1275,
+      "longitude" : -88.5809
+    },
+    "name" : "Hancock"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.7875,
+      "longitude" : -86.1089
+    },
+    "name" : "Holland"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 47.1215,
+      "longitude" : -88.5695
+    },
+    "name" : "Houghton"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.8202,
+      "longitude" : -88.0659
+    },
+    "name" : "Iron Mountain"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 46.4874,
+      "longitude" : -87.6674
+    },
+    "name" : "Ishpeming"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2459,
+      "longitude" : -84.4013
+    },
+    "name" : "Jackson"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2917,
+      "longitude" : -85.5872
+    },
+    "name" : "Kalamazoo"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.7325,
+      "longitude" : -84.5555
+    },
+    "name" : "Lansing"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.0514,
+      "longitude" : -83.3188
+    },
+    "name" : "Lapeer"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 46.5437,
+      "longitude" : -87.3954
+    },
+    "name" : "Marquette"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.1077,
+      "longitude" : -87.6141
+    },
+    "name" : "Menominee"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.6156,
+      "longitude" : -84.2472
+    },
+    "name" : "Midland"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 41.9165,
+      "longitude" : -83.3977
+    },
+    "name" : "Monroe"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.5973,
+      "longitude" : -82.878
+    },
+    "name" : "Mount Clemens"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.5978,
+      "longitude" : -84.7675
+    },
+    "name" : "Mount Pleasant"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.2342,
+      "longitude" : -86.2484
+    },
+    "name" : "Muskegon"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4806,
+      "longitude" : -83.4755
+    },
+    "name" : "Novi"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.9978,
+      "longitude" : -84.1744
+    },
+    "name" : "Owosso"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.6389,
+      "longitude" : -83.2911
+    },
+    "name" : "Pontiac"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.9709,
+      "longitude" : -82.4249
+    },
+    "name" : "Port Huron"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.1742,
+      "longitude" : -83.1827
+    },
+    "name" : "Riverview"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4972,
+      "longitude" : -82.9371
+    },
+    "name" : "Roseville"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4895,
+      "longitude" : -83.1446
+    },
+    "name" : "Royal Oak"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 43.4195,
+      "longitude" : -83.9508
+    },
+    "name" : "Saginaw"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 46.4953,
+      "longitude" : -84.3453
+    },
+    "name" : "Sault Ste. Marie"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.4734,
+      "longitude" : -83.2219
+    },
+    "name" : "Southfield"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 45.8724,
+      "longitude" : -84.7275
+    },
+    "name" : "St. Ignace"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 44.7631,
+      "longitude" : -85.6206
+    },
+    "name" : "Traverse City"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2142,
+      "longitude" : -83.1499
+    },
+    "name" : "Wyandotte"
+  },
+  {
+    "coordinate" : {
+      "latitude" : 42.2411,
+      "longitude" : -83.6138
+    },
+    "name" : "Ypsilanti"
+  }
+]
