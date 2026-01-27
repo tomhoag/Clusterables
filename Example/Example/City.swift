@@ -80,74 +80,76 @@ public struct City: Clusterable, Equatable, Hashable, Sendable, Codable {
 }
 
 // MARK: - City collection helpers
-extension Array where Element == City {
-    /// Compute a geographic centroid for the coordinates in this array.
-    /// This converts lat/lon to 3D Cartesian coords, averages them, and
-    /// converts back to latitude/longitude. It's more accurate for points
-    /// spread across the globe than a simple arithmetic mean.
-    var centerCoordinateGeographic: CLLocationCoordinate2D? {
-        guard !self.isEmpty else { return nil }
+extension Array where Element == CLLocationCoordinate2D {
 
-        var x = 0.0
-        var y = 0.0
-        var z = 0.0
+    /// Returns an `MKCoordinateRegion` that encloses all coordinates, handling antimeridian crossing.
+    /// - Parameters:
+    ///   - padding: fractional padding to add to the computed span (0.1 = 10\%).
+    ///   - minSpan: minimum latitude/longitude delta to avoid zero-sized spans.
+    /// - Returns: `MKCoordinateRegion` or `nil` for empty array.
+    func boundingRegion(padding: Double = 0.1, minSpan: CLLocationDegrees = 0.005) -> MKCoordinateRegion? {
+        guard !isEmpty else { return nil }
 
-        for city in self {
-            let latRad = city.coordinate.latitude * .pi / 180.0
-            let lonRad = city.coordinate.longitude * .pi / 180.0
-            x += cos(latRad) * cos(lonRad)
-            y += cos(latRad) * sin(lonRad)
-            z += sin(latRad)
+        // lat min/max
+        var minLat = 90.0, maxLat = -90.0
+        for coord in self {
+            minLat = Swift.min(minLat, coord.latitude)
+            maxLat = Swift.max(maxLat, coord.latitude)
         }
 
-        let total = Double(self.count)
-        x /= total
-        y /= total
-        z /= total
-
-        let lon = atan2(y, x)
-        let hyp = sqrt(x * x + y * y)
-        let lat = atan2(z, hyp)
-
-        return CLLocationCoordinate2D(latitude: lat * 180.0 / .pi,
-                                      longitude: lon * 180.0 / .pi)
-    }
-
-    /// A simple arithmetic mean of latitudes and longitudes.
-    /// Use this for quick, inexpensive approximations for small geographic extents.
-    var centerCoordinateSimple: CLLocationCoordinate2D? {
-        guard !self.isEmpty else { return nil }
-        var latSum = 0.0
-        var lonSum = 0.0
-        for city in self {
-            latSum += city.coordinate.latitude
-            lonSum += city.coordinate.longitude
+        // Normalize longitudes to \(-180, 180] and compute two candidate spans:
+        let normLon: (Double) -> Double = { lon in
+            var x = lon.truncatingRemainder(dividingBy: 360.0)
+            if x <= -180.0 { x += 360.0 }
+            else if x > 180.0 { x -= 360.0 }
+            return x
         }
-        return CLLocationCoordinate2D(latitude: latSum / Double(count), longitude: lonSum / Double(count))
-    }
+        let lonNorm = self.map { normLon($0.longitude) }
 
-    /// Center of the bounding box: midpoint between min/max latitudes and longitudes.
-        var centerCoordinateBoundingBox: CLLocationCoordinate2D? {
-            guard let first = self.first else { return nil }
+        // Candidate 1: use normalized longitudes in [-180, 180]
+        let minLon1 = lonNorm.min() ?? 0.0
+        let maxLon1 = lonNorm.max() ?? 0.0
+        let span1 = maxLon1 - minLon1
 
-            var minLat = first.coordinate.latitude
-            var maxLat = minLat
-            var minLon = first.coordinate.longitude
-            var maxLon = minLon
+        // Candidate 2: shift negatives into [0, 360) to account for wrap-around
+        let lonShifted = lonNorm.map { $0 < 0 ? $0 + 360.0 : $0 }
+        let minLon2 = lonShifted.min() ?? 0.0
+        let maxLon2 = lonShifted.max() ?? 0.0
+        let span2 = maxLon2 - minLon2
 
-            for city in self {
-                let lat = city.coordinate.latitude
-                let lon = city.coordinate.longitude
-                if lat < minLat { minLat = lat }
-                if lat > maxLat { maxLat = lat }
-                if lon < minLon { minLon = lon }
-                if lon > maxLon { maxLon = lon }
+        // Choose the smaller span (handles antimeridian)
+        let useShifted = span2 < span1
+        let (minLon, maxLon, rawLonSpan): (Double, Double, Double) = {
+            if useShifted {
+                return (minLon2, maxLon2, span2)
+            } else {
+                return (minLon1, maxLon1, span1)
             }
+        }()
 
-            let midLat = (minLat + maxLat) / 2.0
-            let midLon = (minLon + maxLon) / 2.0
-            return CLLocationCoordinate2D(latitude: midLat, longitude: midLon)
+        // Center longitude: if using shifted coords, convert back to [-180, 180]
+        var centerLon = (minLon + maxLon) / 2.0
+        if useShifted {
+            if centerLon > 180.0 { centerLon -= 360.0 }
         }
+
+        let centerLat = (minLat + maxLat) / 2.0
+
+        // Apply padding and enforce minimum spans
+        let latSpanRaw = maxLat - minLat
+        let lonSpanRaw = rawLonSpan
+
+        let latSpan = Swift.max(latSpanRaw * (1.0 + padding), minSpan)
+        let lonSpan = Swift.max(lonSpanRaw * (1.0 + padding), minSpan)
+
+        // Clamp to valid ranges
+        let finalLatSpan = Swift.min(latSpan, 180.0)
+        let finalLonSpan = Swift.min(lonSpan, 360.0)
+
+        let center = CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon)
+        let span = MKCoordinateSpan(latitudeDelta: finalLatSpan, longitudeDelta: finalLonSpan)
+        return MKCoordinateRegion(center: center, span: span)
+    }
 }
 
 

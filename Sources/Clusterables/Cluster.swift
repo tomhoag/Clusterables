@@ -33,9 +33,7 @@ public protocol Clusterable: Equatable, Sendable {
 
 /**
  # ClusterManagerProvider
-
  A protocol that defines a view that provides a cluster manager.
-
  ## Example
  ```swift
  struct MapView: View, ClusterManagerProvider {
@@ -143,18 +141,6 @@ public class ClusterManager<CR: Clusterable> {
     public init() { clusters = [] }
 
     /**
-     Updates the clusters using the specified items and epsilon value.
-
-     - Parameters:
-         - items: The items to cluster.
-         - epsilon: The maximum distance between two items for them to be considered as part of the same cluster.
-     */
-    @MainActor
-    public func update(_ items: [CR], epsilon: Double) async {
-        clusters = await makeClusters(items, epsilon: epsilon)
-    }
-
-    /**
      Updates the clusters using the specified items and map view parameters.
 
      - Parameters:
@@ -168,6 +154,10 @@ public class ClusterManager<CR: Clusterable> {
         clusters = await makeClusters(items, epsilon: distance)
     }
 
+    fileprivate struct PointKey: Hashable {
+        let latKey: Int64
+        let lonKey: Int64
+    }
     /**
      Creates clusters from the specified items using the DBSCAN algorithm.
 
@@ -178,39 +168,81 @@ public class ClusterManager<CR: Clusterable> {
      */
     @MainActor
     private func makeClusters(_ items: [CR], epsilon: Double) async -> [Cluster<CR>] {
-        guard !items.isEmpty else { return [] }
 
-        return await Task { () -> [Cluster] in
-            // Convert locations to SIMD3 format
-            let input = items.map { place in
-                SIMD3<Double>(
-                    x: place.coordinate.latitude,
-                    y: place.coordinate.longitude,
-                    z: 0.0
-                )
-            }
+        let overallStart = DispatchTime.now()
 
-            // Run DBSCAN clustering
-            let dbscan = DBSCAN(input)
-            let (clusters, _) = dbscan(
+        guard !items.isEmpty else {
+            let overallElapsed = Double(DispatchTime.now().uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
+            print("empty input, skipping clustering, took \(overallElapsed)s")
+            return []
+        }
+
+        let precision: Double = 1_000_000.0
+        var points: [SIMD2<Double>] = []
+        points.reserveCapacity(items.count)
+        var coordIndexMap: [PointKey: [Int]] = [:]
+        coordIndexMap.reserveCapacity(items.count * 2)
+
+        for (i, item) in items.enumerated() {
+            let lat = item.coordinate.latitude
+            let lon = item.coordinate.longitude
+            points.append(SIMD2<Double>(lat, lon))
+
+            let latKey = Int64((lat * precision).rounded())
+            let lonKey = Int64((lon * precision).rounded())
+            let key = PointKey(latKey: latKey, lonKey: lonKey)
+            coordIndexMap[key, default: []].append(i)
+        }
+
+        // Pass only `points` and the precomputed `coordIndexMap` into the detached task.
+        // Avoid any fallback searches; rely on the stable point key mapping.
+        let (rawIndexClusters, dbscanElapsed): ([[Int]], TimeInterval) = await Task.detached { () -> ([[Int]], TimeInterval) in
+
+            let start = DispatchTime.now()
+            let dbscan = DBSCAN(points)
+            let (rawClusters, _) = dbscan(
                 epsilon: epsilon,
                 minimumNumberOfPoints: 1,
                 distanceFunction: simd.distance
             )
 
-            // Convert DBSCAN clusters to PlaceClusters
-            return clusters.compactMap { cluster -> Cluster? in
-                guard !cluster.isEmpty else { return nil }
-                // Get original items for each cluster by matching coordinates
-                let clusterItems = cluster.compactMap { point in
-                    items.first { item in
-                        item.coordinate.latitude == point.x && item.coordinate.longitude == point.y
-                    }
+            var indexClusters: [[Int]] = []
+            indexClusters.reserveCapacity(rawClusters.count)
+
+            for raw in rawClusters {
+                guard !raw.isEmpty else { continue }
+                var clusterIndices: [Int] = []
+                clusterIndices.reserveCapacity(raw.count)
+
+                for pt in raw {
+                    let lonKey = Int64((pt.y * precision).rounded())
+                    let latKey = Int64((pt.x * precision).rounded())
+                    let key = PointKey(latKey: latKey, lonKey: lonKey)
+                    if let indices = coordIndexMap[key] {
+                        clusterIndices.append(contentsOf: indices)
+                    } // NO fallback firstIndex call
                 }
 
-                guard !clusterItems.isEmpty else { return nil }
-                return Cluster(items: clusterItems)
+                if !clusterIndices.isEmpty {
+                    indexClusters.append(clusterIndices)
+                }
             }
+            let end = DispatchTime.now()
+            let dbscanElapsed = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
+            return (indexClusters, dbscanElapsed)
         }.value
+
+        // convert index clusters to Cluster<CR>
+        let clusters = rawIndexClusters.compactMap { indices -> Cluster<CR>? in
+            guard !indices.isEmpty else { return nil }
+            let clusterItems = indices.map { items[$0] }
+            return Cluster(items: clusterItems)
+        }
+
+        let overallEnd = DispatchTime.now()
+        let overallElapsed = Double(overallEnd.uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
+
+        print("makeClustersOptimized \(items.count) took \(overallElapsed)s (dbscan: \(dbscanElapsed)s)")
+        return clusters
     }
 }

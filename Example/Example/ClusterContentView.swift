@@ -12,9 +12,9 @@ import SwiftUI
 struct ClusterContentView: View, ClusterManagerProvider {
 
     @State var clusterManager = ClusterManager<City>()
-
-    @State var items: [City] = Bundle.main.decode("MichiganCities.json") ?? []
+    @State var items: [City] = Bundle.main.decode("USCities1813") ?? []
     @State var cameraPosition: MapCameraPosition = .automatic
+    @State private var useOptimization = true
 
     private let spacing = 30
 
@@ -61,14 +61,25 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     MapCompass()
                 }
             }
+            HStack {
+                Button("Reset") {
+                    // Reset the map camera to the initial bounding region
+                    cameraPosition = .region(mapRegion)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.top, 12)
+                .padding(.horizontal)
+            }
         }
         .padding()
     }
 
     var mapRegion:MKCoordinateRegion {
-        let center = items.centerCoordinateBoundingBox ?? CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5)
-        let span = MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
-        return MKCoordinateRegion(center: center, span: span)
+        let coordinateArray = items.map { $0.coordinate }
+        return coordinateArray.boundingRegion() ?? MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
+            span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
+        )
     }
 }
 
