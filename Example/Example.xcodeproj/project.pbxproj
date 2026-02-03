@@ -30,6 +30,9 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		007B077C2F267DA700B0DB69 /* Example */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFolders = (
+				USCities,
+			);
 			path = Example;
 			sourceTree = "<group>";
 		};

@@ -9,6 +9,7 @@
  */
 
 import DBSCAN
+import KDTree
 import MapKit
 import SwiftUI
 import simd
@@ -138,7 +139,9 @@ public class ClusterManager<CR: Clusterable> {
     public private(set) var clusters: [Cluster<CR>]
 
     /// Creates a new cluster manager with an empty set of clusters.
-    public init() { clusters = [] }
+    public init() {
+        clusters = []
+    }
 
     /**
      Updates the clusters using the specified items and map view parameters.
@@ -149,32 +152,36 @@ public class ClusterManager<CR: Clusterable> {
      - spacing: The desired spacing between clusters in screen points.
      */
     @MainActor
-    public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int) async {
-        guard let distance = mapProxy.degrees(fromPixels: spacing) else { return }
-        clusters = await makeClusters(items, epsilon: distance)
+    public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int, useKDTree: Bool = true) async  -> (TimeInterval, TimeInterval) {
+        guard let distance = mapProxy.degrees(fromPixels: spacing) else { return (0, 0) }
+        let (newClusters, overallElapsed, dbscanElapsed) = await makeClusters(items, epsilon: distance, useKDTree: useKDTree)
+        clusters = newClusters
+        return (overallElapsed, dbscanElapsed)
     }
 
     fileprivate struct PointKey: Hashable {
         let latKey: Int64
         let lonKey: Int64
     }
+
+
     /**
      Creates clusters from the specified items using the DBSCAN algorithm.
 
      - Parameters:
          - items: The items to cluster.
          - epsilon: The maximum distance between two items for them to be considered as part of the same cluster.
-     - Returns: An array of clusters.
+     - Returns: A tuple containing the clusters, overall elapsed time, and dbscan elapsed time.
      */
     @MainActor
-    private func makeClusters(_ items: [CR], epsilon: Double) async -> [Cluster<CR>] {
+    private func makeClusters(_ items: [CR], epsilon: Double, useKDTree: Bool = true) async -> ([Cluster<CR>], TimeInterval, TimeInterval) {
 
         let overallStart = DispatchTime.now()
 
         guard !items.isEmpty else {
             let overallElapsed = Double(DispatchTime.now().uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
             print("empty input, skipping clustering, took \(overallElapsed)s")
-            return []
+            return ([], overallElapsed, 0)
         }
 
         let precision: Double = 1_000_000.0
@@ -182,6 +189,7 @@ public class ClusterManager<CR: Clusterable> {
         points.reserveCapacity(items.count)
         var coordIndexMap: [PointKey: [Int]] = [:]
         coordIndexMap.reserveCapacity(items.count * 2)
+
 
         for (i, item) in items.enumerated() {
             let lat = item.coordinate.latitude
@@ -194,17 +202,27 @@ public class ClusterManager<CR: Clusterable> {
             coordIndexMap[key, default: []].append(i)
         }
 
+
         // Pass only `points` and the precomputed `coordIndexMap` into the detached task.
         // Avoid any fallback searches; rely on the stable point key mapping.
         let (rawIndexClusters, dbscanElapsed): ([[Int]], TimeInterval) = await Task.detached { () -> ([[Int]], TimeInterval) in
 
-            let start = DispatchTime.now()
             let dbscan = DBSCAN(points)
-            let (rawClusters, _) = dbscan(
-                epsilon: epsilon,
-                minimumNumberOfPoints: 1,
-                distanceFunction: simd.distance
-            )
+
+            var rawClusters: [[SIMD2<Double>]] = []
+
+            let start = DispatchTime.now()
+
+            if(useKDTree) {
+                (rawClusters, _) = dbscan(epsilon: epsilon, minimumNumberOfPoints: 1)
+            } else {
+                (rawClusters, _) = dbscan(
+                    epsilon: epsilon,
+                    minimumNumberOfPoints: 1,
+                    distanceFunction: simd.distance
+                )
+            }
+            let dbscanElapsed = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
 
             var indexClusters: [[Int]] = []
             indexClusters.reserveCapacity(rawClusters.count)
@@ -227,8 +245,6 @@ public class ClusterManager<CR: Clusterable> {
                     indexClusters.append(clusterIndices)
                 }
             }
-            let end = DispatchTime.now()
-            let dbscanElapsed = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
             return (indexClusters, dbscanElapsed)
         }.value
 
@@ -242,7 +258,7 @@ public class ClusterManager<CR: Clusterable> {
         let overallEnd = DispatchTime.now()
         let overallElapsed = Double(overallEnd.uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
 
-        print("makeClustersOptimized \(items.count) took \(overallElapsed)s (dbscan: \(dbscanElapsed)s)")
-        return clusters
+        print("makeClusters \(items.count) took \(overallElapsed)s (dbscan: \(dbscanElapsed)s) kdtree:\(useKDTree)")
+        return (clusters, overallElapsed, dbscanElapsed)
     }
 }
