@@ -23,7 +23,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
     @State private var selectedUSCityFile: String = ""
     @State private var isLoading: Bool = false
 
-    private let spacing = 30
+    @State private var spacing: Double = 30
 
     var body: some View {
         VStack {
@@ -66,14 +66,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
                         Task { @MainActor in
                             items = Bundle.main.decode([City].self, "USCities/\(selectedUSCityFile)") ?? []
-                            cameraPosition = .region(mapRegion)
-                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: mapProxy, spacing: spacing, useKDTree: useKDTree)
+                            cameraPosition = .region(mapRegion) // will force clusterManager.update
                         }
                     }
                     .onMapCameraChange(frequency: .onEnd) { _ in
                         cachedMapProxy = mapProxy
                         Task { @MainActor in
-                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: mapProxy, spacing: spacing, useKDTree: useKDTree)
+                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: mapProxy, spacing: Int(spacing), useKDTree: useKDTree)
                         }
                     }
                     .animation(.easeIn, value: cameraPosition)
@@ -121,24 +120,42 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     }
                     .pickerStyle(.menu)
                     .padding(.top, 8)
-                    .onChange(of: selectedUSCityFile) { _, newFile in
+                    .onChange(of: selectedUSCityFile) { oldFile, newFile in
                         guard !newFile.isEmpty else { return }
+                        guard oldFile != newFile else { return }
 
                         Task { @MainActor in
                             isLoading = true
-                            items = []
+                            items = [] // clear all markers from the map
                             if let proxy = cachedMapProxy {
-                                _ = await clusterManager.update([], mapProxy: proxy, spacing: spacing, useKDTree: useKDTree)
+                                _ = await clusterManager.update([], mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
                             }
                             
                             items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
-                            cameraPosition = .region(mapRegion)
-                            if let proxy = cachedMapProxy {
-                                (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: proxy, spacing: spacing, useKDTree: useKDTree)
-                            }
+                            cameraPosition = .region(mapRegion) // will force a clusterManager.update
                             isLoading = false
                         }
                     }
+
+                    HStack {
+                        Text("Spacing \(Int(spacing))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Slider(value: $spacing, in: 10...100, step: 5)
+                            .frame(width: 150)
+                            .onChange(of: spacing) { oldValue, newValue in
+                                guard oldValue != newValue else { return }
+                                Task { @MainActor in
+                                    isLoading = true
+                                    if let proxy = cachedMapProxy {
+                                        (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
+                                    }
+                                    isLoading = false
+                                }
+
+                            }
+                    }
+                    .padding(.top, 8)
 
                     HStack(spacing: 5) {
                         Text("Use KD-Tree")

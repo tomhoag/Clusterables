@@ -13,16 +13,14 @@ let package = Package(
             targets: ["Clusterables"])
     ],
     dependencies: [
-        //.package(url: "https://github.com/tomhoag/KDTree-DBSCAN", from: "0.0.1")
-        .package(path: "../KDTree-DBSCAN")
+        .package(url: "https://github.com/tomhoag/KDTree-DBSCAN", from: "0.0.2")
     ],
     targets: [
         .target(
             name: "Clusterables",
             dependencies: [
                 .product(name: "DBSCAN", package: "KDTree-DBSCAN")
-            ],
-            exclude: [ "Example/" ]
+            ]
         )
     ]
 )
