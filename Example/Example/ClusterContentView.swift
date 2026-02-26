@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  ClusterContentView.swift
 //  MichiganMapClustering
 //
 //  Created by Tom Hoag on 3/28/25.
@@ -8,6 +8,7 @@
 import Clusterables
 import MapKit
 import SwiftUI
+import CoreLocation
 
 struct ClusterContentView: View, ClusterManagerProvider {
 
@@ -66,13 +67,17 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
                         Task { @MainActor in
                             items = Bundle.main.decode([City].self, "USCities/\(selectedUSCityFile)") ?? []
-                            cameraPosition = .region(mapRegion) // will force clusterManager.update
+                            cameraPosition = .region(itemsMapRegion) // will force clusterManager.update
                         }
                     }
-                    .onMapCameraChange(frequency: .onEnd) { _ in
+                    .onMapCameraChange { context in
+                        // filter out the items that are actually visible on the map
+                        let visibleItems = items.filter { item in
+                            return context.region.contains(item.coordinate)
+                        }
                         cachedMapProxy = mapProxy
                         Task { @MainActor in
-                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: mapProxy, spacing: Int(spacing), useKDTree: useKDTree)
+                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(visibleItems, mapProxy: mapProxy, spacing: Int(spacing), useKDTree: useKDTree)
                         }
                     }
                     .animation(.easeIn, value: cameraPosition)
@@ -109,10 +114,15 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
             HStack {
 
+                VStack (alignment: .leading, spacing: 4) {
+                    Text("Total cities: \(items.count)")
+                    Text("Visible cities: \(clusterManager.clusters.reduce(0) { $0 + $1.items.count })")
+                    Text("Total clusters: \(clusterManager.clusters.filter {$0.items.count > 1 }.count)")
+                }
+                .padding(.leading)
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-
                     Picker("", selection: $selectedUSCityFile) {
                         ForEach(availableUSCityFiles, id: \.self) {
                             Text($0).tag($0)
@@ -132,7 +142,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                             }
                             
                             items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
-                            cameraPosition = .region(mapRegion) // will force a clusterManager.update
+                            cameraPosition = .region(itemsMapRegion) // will force a clusterManager.update
                             isLoading = false
                         }
                     }
@@ -152,7 +162,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
                                     }
                                     isLoading = false
                                 }
-
                             }
                     }
                     .padding(.top, 8)
@@ -168,7 +177,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                .padding(.trailing, 12)
+                .padding(.trailing)
             }
         }
         .padding()
@@ -182,7 +191,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
         }
     }
 
-    var mapRegion:MKCoordinateRegion {
+    var itemsMapRegion:MKCoordinateRegion {
         let coordinateArray = items.map { $0.coordinate }
         return coordinateArray.boundingRegion() ?? MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
@@ -202,6 +211,23 @@ private struct ClusterAnnotationView: View {
             .font(.largeTitle)
     }
 }
+
+private extension MKCoordinateRegion {
+    func contains(_ coordinate: CLLocationCoordinate2D) -> Bool {
+        let center = self.center
+        let span = self.span
+
+        let minLatitude = center.latitude - span.latitudeDelta / 2
+        let maxLatitude = center.latitude + span.latitudeDelta / 2
+        let minLongitude = center.longitude - span.longitudeDelta / 2
+        let maxLongitude = center.longitude + span.longitudeDelta / 2
+
+        // Handle longitude wrapping around the international date line if necessary for a production app
+        return coordinate.latitude >= minLatitude && coordinate.latitude <= maxLatitude &&
+               coordinate.longitude >= minLongitude && coordinate.longitude <= maxLongitude
+    }
+}
+
 
 // Add a small Bundle helper to decode JSON files from the bundle into Decodable types.
 private extension Bundle {
