@@ -18,13 +18,16 @@ struct ClusterContentView: View, ClusterManagerProvider {
     @State private var useKDTree = true
     @State private var lastUpdateDuration: TimeInterval?
     @State private var dbscanDuration: TimeInterval?
-    @State private var cachedMapProxy: MapProxy?
 
     @State private var availableUSCityFiles: [String] = []
     @State private var selectedUSCityFile: String = ""
     @State private var isLoading: Bool = false
 
     @State private var spacing: Double = 30
+
+    @State private var cachedMapProxy: MapProxy?
+    @State private var cachedItemsRegion: MKCoordinateRegion?
+    @State private var clusterUpdateTask: Task<Void, Never>?
 
     var body: some View {
         VStack {
@@ -66,19 +69,14 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         }
 
                         Task { @MainActor in
-                            items = Bundle.main.decode([City].self, "USCities/\(selectedUSCityFile)") ?? []
+                            items = Bundle.main.decodeCached([City].self, "USCities/\(selectedUSCityFile)") ?? []
                             cameraPosition = .region(itemsMapRegion) // will force clusterManager.update
                         }
                     }
                     .onMapCameraChange { context in
-                        // filter out the items that are actually visible on the map
-                        let visibleItems = items.filter { item in
-                            return context.region.contains(item.coordinate)
-                        }
                         cachedMapProxy = mapProxy
-                        Task { @MainActor in
-                            (lastUpdateDuration, dbscanDuration) = await clusterManager.update(visibleItems, mapProxy: mapProxy, spacing: Int(spacing), useKDTree: useKDTree)
-                        }
+                        cachedItemsRegion = context.region
+                        scheduleClusterUpdate()
                     }
                     .animation(.easeIn, value: cameraPosition)
                     .mapStyle(
@@ -140,7 +138,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                             if let proxy = cachedMapProxy {
                                 _ = await clusterManager.update([], mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
                             }
-                            
+
                             items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
                             cameraPosition = .region(itemsMapRegion) // will force a clusterManager.update
                             isLoading = false
@@ -157,9 +155,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                                 guard oldValue != newValue else { return }
                                 Task { @MainActor in
                                     isLoading = true
-                                    if let proxy = cachedMapProxy {
-                                        (lastUpdateDuration, dbscanDuration) = await clusterManager.update(items, mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
-                                    }
+                                    scheduleClusterUpdate() // schedule a new update with the new spacing value
                                     isLoading = false
                                 }
                             }
@@ -198,6 +194,39 @@ struct ClusterContentView: View, ClusterManagerProvider {
             span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
         )
     }
+
+    // Debounced / cancellable cluster update
+    private func scheduleClusterUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = 150) {
+        // cancel any in-flight task
+        clusterUpdateTask?.cancel()
+        clusterUpdateTask = Task { @MainActor in
+            // simple debounce
+            try? await Task.sleep(nanoseconds: delayMilliseconds * 1_000_000)
+            guard !Task.isCancelled else { return }
+
+            guard let proxy = cachedMapProxy else {
+                return
+            }
+
+            let sourceItems: [City] // ???
+            if withVisibleOnly {
+                sourceItems = visibleItems(in: cachedItemsRegion!, from: items)
+            } else {
+                sourceItems = items
+            }
+
+            // perform async update and capture results on main actor
+            let results = await clusterManager.update(sourceItems, mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
+            lastUpdateDuration = results.0
+            dbscanDuration = results.1
+        }
+    }
+
+    private func visibleItems(in region: MKCoordinateRegion, from allItems: [City]) -> [City] {
+        return allItems.filter { item in
+            return region.contains(item.coordinate)
+        }
+    }
 }
 
 // MARK: - Helper Views
@@ -228,9 +257,20 @@ private extension MKCoordinateRegion {
     }
 }
 
-
 // Add a small Bundle helper to decode JSON files from the bundle into Decodable types.
 private extension Bundle {
+
+    private static var _decodeCache = [String: Any]()
+
+    func decodeCached<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
+        if let cached = Bundle._decodeCache[resource] as? T {
+            return cached
+        }
+        guard let decoded: T = decode(type, resource) else { return nil }
+        Bundle._decodeCache[resource] = decoded
+        return decoded
+    }
+
     func decode<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
         // Allow caller to pass either "MichiganCities.json", "USCities/Name.json" or just "MichiganCities"
         var resourcePath = resource
@@ -278,6 +318,81 @@ private extension Bundle {
     }
 }
 
+extension Array where Element == CLLocationCoordinate2D {
+
+    /// Returns an `MKCoordinateRegion` that encloses all coordinates, handling antimeridian crossing.
+    /// - Parameters:
+    ///   - padding: fractional padding to add to the computed span (0.1 = 10\%).
+    ///   - minSpan: minimum latitude/longitude delta to avoid zero-sized spans.
+    /// - Returns: `MKCoordinateRegion` or `nil` for empty array.
+    func boundingRegion(padding: Double = 0.1, minSpan: CLLocationDegrees = 0.005) -> MKCoordinateRegion? {
+        guard !isEmpty else { return nil }
+
+        // lat min/max
+        var minLat = 90.0, maxLat = -90.0
+        for coord in self {
+            minLat = Swift.min(minLat, coord.latitude)
+            maxLat = Swift.max(maxLat, coord.latitude)
+        }
+
+        // Normalize longitudes to \(-180, 180] and compute two candidate spans:
+        let normLon: (Double) -> Double = { lon in
+            var x = lon.truncatingRemainder(dividingBy: 360.0)
+            if x <= -180.0 { x += 360.0 }
+            else if x > 180.0 { x -= 360.0 }
+            return x
+        }
+        let lonNorm = self.map { normLon($0.longitude) }
+
+        // Candidate 1: use normalized longitudes in [-180, 180]
+        let minLon1 = lonNorm.min() ?? 0.0
+        let maxLon1 = lonNorm.max() ?? 0.0
+        let span1 = maxLon1 - minLon1
+
+        // Candidate 2: shift negatives into [0, 360) to account for wrap-around
+        let lonShifted = lonNorm.map { $0 < 0 ? $0 + 360.0 : $0 }
+        let minLon2 = lonShifted.min() ?? 0.0
+        let maxLon2 = lonShifted.max() ?? 0.0
+        let span2 = maxLon2 - minLon2
+
+        // Choose the smaller span (handles antimeridian)
+        let useShifted = span2 < span1
+        let (minLon, maxLon, rawLonSpan): (Double, Double, Double) = {
+            if useShifted {
+                return (minLon2, maxLon2, span2)
+            } else {
+                return (minLon1, maxLon1, span1)
+            }
+        }()
+
+        // Center longitude: if using shifted coords, convert back to [-180, 180]
+        var centerLon = (minLon + maxLon) / 2.0
+        if useShifted {
+            if centerLon > 180.0 { centerLon -= 360.0 }
+        }
+
+        let centerLat = (minLat + maxLat) / 2.0
+
+        // Apply padding and enforce minimum spans
+        let latSpanRaw = maxLat - minLat
+        let lonSpanRaw = rawLonSpan
+
+        let latSpan = Swift.max(latSpanRaw * (1.0 + padding), minSpan)
+        let lonSpan = Swift.max(lonSpanRaw * (1.0 + padding), minSpan)
+
+        // Clamp to valid ranges
+        let finalLatSpan = Swift.min(latSpan, 180.0)
+        let finalLonSpan = Swift.min(lonSpan, 360.0)
+
+        let center = CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon)
+        let span = MKCoordinateSpan(latitudeDelta: finalLatSpan, longitudeDelta: finalLonSpan)
+        return MKCoordinateRegion(center: center, span: span)
+    }
+}
+
+
+
 #Preview {
     ClusterContentView()
 }
+
