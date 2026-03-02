@@ -13,9 +13,11 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
     @State var clusterManager = ClusterManager<City>()
     @State var items: [City] =  []
+    @State private var visibleItems: [City] = []
+
     @State var cameraPosition: MapCameraPosition = .automatic
 
-    @State private var useClustering = true
+    @State private var useClustering = false
     @State private var useKDTree = true
     @State private var onlyVisible = true
 
@@ -39,16 +41,26 @@ struct ClusterContentView: View, ClusterManagerProvider {
             ZStack {
                 MapReader { mapProxy in
                     Map(position: $cameraPosition, interactionModes: .all) {
-                        ForEach(clusterManager.clusters) { cluster in
-                            if cluster.size == 1, let city = cluster.items.first {
+                        if useClustering {
+                            ForEach(clusterManager.clusters) { cluster in
+                                if cluster.size == 1, let city = cluster.items.first {
+                                    Annotation(city.name, coordinate: city.coordinate) {
+                                        Circle()
+                                            .foregroundColor(.red)
+                                            .frame(width: 7)
+                                    }
+                                } else {
+                                    Annotation("", coordinate: cluster.center) {
+                                        ClusterAnnotationView(size: cluster.size)
+                                    }
+                                }
+                            }
+                        } else {
+                            ForEach(visibleItems, id: \.self) { city in
                                 Annotation(city.name, coordinate: city.coordinate) {
                                     Circle()
                                         .foregroundColor(.red)
                                         .frame(width: 7)
-                                }
-                            } else {
-                                Annotation("", coordinate: cluster.center) {
-                                    ClusterAnnotationView(size: cluster.size)
                                 }
                             }
                         }
@@ -81,7 +93,11 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     .onMapCameraChange { context in
                         cachedMapProxy = mapProxy
                         cachedItemsRegion = context.region
-                        scheduleClusterUpdate(withVisibleOnly: onlyVisible)
+                        if useClustering {
+                            scheduleClusterUpdate(withVisibleOnly: onlyVisible)
+                        } else {
+                            scheduleItemsUpdate(withVisibleOnly: onlyVisible)
+                        }
                     }
                     .animation(.easeIn, value: cameraPosition)
                     .mapStyle(
@@ -119,9 +135,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
                 VStack (alignment: .leading, spacing: 4) {
                     Text("Total cities: \(items.count)")
-                    Text("Visible on Map: \(clusterManager.clusters.reduce(0) { $0 + $1.items.count })")
-                    Text("  as Cities: \(clusterManager.clusters.filter {$0.items.count == 1 }.count)")
-                    Text("  as Clusters: \(clusterManager.clusters.filter {$0.items.count > 1 }.count)")
+                    if useClustering {
+                        Text("Visible on Map: \(clusterManager.clusters.reduce(0) { $0 + $1.items.count })")
+                        Text("  as Cities: \(clusterManager.clusters.filter {$0.items.count == 1 }.count)")
+                        Text("  as Clusters: \(clusterManager.clusters.filter {$0.items.count > 1 }.count)")
+                    } else {
+                        Text("Visible on Map: \(visibleItems.count)")
+                    }
                 }
                 .padding(.leading)
                 Spacer()
@@ -167,8 +187,11 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         Task { @MainActor in
                             isLoading = true
                             items = [] // clear all markers from the map
-                            if let proxy = cachedMapProxy {
-                                _ = await clusterManager.update([], mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
+
+                            if useClustering {
+                                if let proxy = cachedMapProxy {
+                                    _ = await clusterManager.update([], mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
+                                }
                             }
 
                             items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
@@ -220,6 +243,96 @@ struct ClusterContentView: View, ClusterManagerProvider {
         )
     }
 
+    private func scheduleItemsUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = 150) {
+
+        clusterUpdateTask?.cancel()
+
+        if withVisibleOnly {
+            // snapshot lightweight state so background work doesn't repeatedly read @State
+            let itemsSnapshot = self.items
+            let coordsSnapshot = self.cachedCoordinates
+            let regionSnapshot = self.cachedItemsRegion
+            let delay = delayMilliseconds
+
+            clusterUpdateTask = Task.detached { [itemsSnapshot, coordsSnapshot, regionSnapshot, delay] in
+                // simple debounce
+                try? await Task.sleep(nanoseconds: delay * 1_000_000)
+                guard !Task.isCancelled else { return }
+
+                // determine region to use (safe fallback to computed region)
+                let regionToUse: MKCoordinateRegion
+                if let cachedRegion = regionSnapshot {
+                    regionToUse = cachedRegion
+                } else {
+                    // compute from cached coordinates if available, otherwise compute from items
+                    let regionFromCoords: MKCoordinateRegion
+                    if coordsSnapshot.isEmpty {
+                        // Need itemsMapRegion; compute here from itemsSnapshot to avoid capturing self
+                        let coordinateArray = itemsSnapshot.map { $0.coordinate }
+                        regionFromCoords = await coordinateArray.boundingRegion() ?? MKCoordinateRegion(
+                            center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
+                            span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
+                        )
+                    } else {
+                        // local helper to compute region from coordinates
+                        func coordsToRegion(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+                            guard !coords.isEmpty else {
+                                return MKCoordinateRegion(
+                                    center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
+                                    span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
+                                )
+                            }
+                            let latitudes = coords.map { $0.latitude }
+                            let longitudes = coords.map { $0.longitude }
+                            let minLat = latitudes.min() ?? 44.0
+                            let maxLat = latitudes.max() ?? 44.0
+                            let minLon = longitudes.min() ?? -85.5
+                            let maxLon = longitudes.max() ?? -85.5
+                            let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2.0, longitude: (minLon + maxLon) / 2.0)
+                            let span = MKCoordinateSpan(latitudeDelta: max(0.01, (maxLat - minLat)), longitudeDelta: max(0.01, (maxLon - minLon)))
+                            return MKCoordinateRegion(center: center, span: span)
+                        }
+                        regionFromCoords = coordsToRegion(coordsSnapshot)
+                    }
+                    regionToUse = regionFromCoords
+                }
+
+                // compute source items (visible-only or all)
+                let sourceItems: [City]
+                // local visibleItems implementation to avoid capturing self
+                func normalize(_ lon: Double) -> Double {
+                    var l = lon
+                    while l < -180.0 { l += 360.0 }
+                    while l > 180.0 { l -= 360.0 }
+                    return l
+                }
+
+                let centerLon = normalize(regionToUse.center.longitude)
+                let lonDelta = regionToUse.span.longitudeDelta
+                let minLon = normalize(centerLon - lonDelta / 2.0)
+                let maxLon = normalize(centerLon + lonDelta / 2.0)
+                let minLat = regionToUse.center.latitude - regionToUse.span.latitudeDelta / 2.0
+                let maxLat = regionToUse.center.latitude + regionToUse.span.latitudeDelta / 2.0
+                let crossesAntimeridian = minLon > maxLon
+                sourceItems = itemsSnapshot.filter { item in
+                    let lat = item.coordinate.latitude
+                    guard lat >= minLat && lat <= maxLat else { return false }
+                    let lon = normalize(item.coordinate.longitude)
+                    if crossesAntimeridian {
+                        return lon >= minLon || lon <= maxLon
+                    } else {
+                        return lon >= minLon && lon <= maxLon
+                    }
+                }
+                await MainActor.run { visibleItems = sourceItems }
+            }
+
+        } else {
+            visibleItems = items
+        }
+
+    }
+
     private func scheduleClusterUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = 150) {
         // cancel any in-flight task
         clusterUpdateTask?.cancel()
@@ -234,7 +347,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
         let delay = delayMilliseconds
 
         // use a detached task to perform debounce and clustering off the main actor
-        clusterUpdateTask = Task.detached { [spacingSnapshot, useKDTreeSnapshot, itemsSnapshot, coordsSnapshot, regionSnapshot, withVisibleOnlySnapshot, delay] in
+        clusterUpdateTask = Task.detached { [spacingSnapshot, coordsSnapshot, useKDTreeSnapshot, itemsSnapshot, regionSnapshot, withVisibleOnlySnapshot, delay] in
             // simple debounce
             try? await Task.sleep(nanoseconds: delay * 1_000_000)
             guard !Task.isCancelled else { return }
