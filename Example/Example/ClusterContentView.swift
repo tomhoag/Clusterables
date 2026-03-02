@@ -28,6 +28,8 @@ struct ClusterContentView: View, ClusterManagerProvider {
     @State private var cachedItemsRegion: MKCoordinateRegion?
     @State private var clusterUpdateTask: Task<Void, Never>?
 
+    @State private var cachedCoordinates: [CLLocationCoordinate2D] = []
+
     var body: some View {
         VStack {
             ZStack {
@@ -114,8 +116,8 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 VStack (alignment: .leading, spacing: 4) {
                     Text("Total cities: \(items.count)")
                     Text("Visible on Map: \(clusterManager.clusters.reduce(0) { $0 + $1.items.count })")
-                    Text("as Cities: \(clusterManager.clusters.filter {$0.items.count == 1 }.count)")
-                    Text("as Clusters: \(clusterManager.clusters.filter {$0.items.count > 1 }.count)")
+                    Text("  as Cities: \(clusterManager.clusters.filter {$0.items.count == 1 }.count)")
+                    Text("  as Clusters: \(clusterManager.clusters.filter {$0.items.count > 1 }.count)")
                 }
                 .padding(.leading)
                 Spacer()
@@ -195,31 +197,125 @@ struct ClusterContentView: View, ClusterManagerProvider {
         )
     }
 
-    // Debounced / cancellable cluster update
     private func scheduleClusterUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = 150) {
         // cancel any in-flight task
         clusterUpdateTask?.cancel()
-        clusterUpdateTask = Task { @MainActor in
+
+        // snapshot lightweight state so background work doesn't repeatedly read @State
+        let spacingSnapshot = Int(self.spacing)
+        let useKDTreeSnapshot = self.useKDTree
+        let itemsSnapshot = self.items
+        let coordsSnapshot = self.cachedCoordinates
+        let regionSnapshot = self.cachedItemsRegion
+        let withVisibleOnlySnapshot = withVisibleOnly
+        let delay = delayMilliseconds
+
+        // use a detached task to perform debounce and clustering off the main actor
+        clusterUpdateTask = Task.detached { [spacingSnapshot, useKDTreeSnapshot, itemsSnapshot, coordsSnapshot, regionSnapshot, withVisibleOnlySnapshot, delay] in
             // simple debounce
-            try? await Task.sleep(nanoseconds: delayMilliseconds * 1_000_000)
+            try? await Task.sleep(nanoseconds: delay * 1_000_000)
             guard !Task.isCancelled else { return }
 
-            guard let proxy = cachedMapProxy else {
-                return
-            }
-
-            let sourceItems: [City] // ???
-            if withVisibleOnly {
-                sourceItems = visibleItems(in: cachedItemsRegion!, from: items)
+            // determine region to use (safe fallback to computed region)
+            let regionToUse: MKCoordinateRegion
+            if let cachedRegion = regionSnapshot {
+                regionToUse = cachedRegion
             } else {
-                sourceItems = items
+                // compute from cached coordinates if available, otherwise compute from items
+                let regionFromCoords: MKCoordinateRegion
+                if coordsSnapshot.isEmpty {
+                    // Need itemsMapRegion; compute here from itemsSnapshot to avoid capturing self
+                    let coordinateArray = itemsSnapshot.map { $0.coordinate }
+                    regionFromCoords = await coordinateArray.boundingRegion() ?? MKCoordinateRegion(
+                        center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
+                        span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
+                    )
+                } else {
+                    // local helper to compute region from coordinates
+                    func coordsToRegion(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+                        guard !coords.isEmpty else {
+                            return MKCoordinateRegion(
+                                center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
+                                span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
+                            )
+                        }
+                        let latitudes = coords.map { $0.latitude }
+                        let longitudes = coords.map { $0.longitude }
+                        let minLat = latitudes.min() ?? 44.0
+                        let maxLat = latitudes.max() ?? 44.0
+                        let minLon = longitudes.min() ?? -85.5
+                        let maxLon = longitudes.max() ?? -85.5
+                        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2.0, longitude: (minLon + maxLon) / 2.0)
+                        let span = MKCoordinateSpan(latitudeDelta: max(0.01, (maxLat - minLat)), longitudeDelta: max(0.01, (maxLon - minLon)))
+                        return MKCoordinateRegion(center: center, span: span)
+                    }
+                    regionFromCoords = coordsToRegion(coordsSnapshot)
+                }
+                regionToUse = regionFromCoords
             }
 
-            // perform async update and capture results on main actor
-            let results = await clusterManager.update(sourceItems, mapProxy: proxy, spacing: Int(spacing), useKDTree: useKDTree)
-            lastUpdateDuration = results.0
-            dbscanDuration = results.1
-        }
+            // compute source items (visible-only or all)
+            let sourceItems: [City]
+            if withVisibleOnlySnapshot {
+                // local visibleItems implementation to avoid capturing self
+                func normalize(_ lon: Double) -> Double {
+                    var l = lon
+                    while l < -180.0 { l += 360.0 }
+                    while l > 180.0 { l -= 360.0 }
+                    return l
+                }
+                let centerLon = normalize(regionToUse.center.longitude)
+                let lonDelta = regionToUse.span.longitudeDelta
+                let minLon = normalize(centerLon - lonDelta / 2.0)
+                let maxLon = normalize(centerLon + lonDelta / 2.0)
+                let minLat = regionToUse.center.latitude - regionToUse.span.latitudeDelta / 2.0
+                let maxLat = regionToUse.center.latitude + regionToUse.span.latitudeDelta / 2.0
+                let crossesAntimeridian = minLon > maxLon
+                sourceItems = itemsSnapshot.filter { item in
+                    let lat = item.coordinate.latitude
+                    guard lat >= minLat && lat <= maxLat else { return false }
+                    let lon = normalize(item.coordinate.longitude)
+                    if crossesAntimeridian {
+                        return lon >= minLon || lon <= maxLon
+                    } else {
+                        return lon >= minLon && lon <= maxLon
+                    }
+                }
+            } else {
+                sourceItems = itemsSnapshot
+            }
+
+            await MainActor.run {
+                guard let proxy = self.cachedMapProxy else { return }
+                // Directly call if it must be main-actor isolated:
+                Task { @MainActor in
+                    let results = await self.clusterManager.update(
+                        sourceItems,
+                        mapProxy: proxy,
+                        spacing: spacingSnapshot,
+                        useKDTree: useKDTreeSnapshot
+                    )
+                    self.lastUpdateDuration = results.0
+                    self.dbscanDuration = results.1
+                }
+            }
+
+        } as? Task<Void, Never>
+    }
+
+    // Small helper to build a region from a coordinates array
+    private func coordsToRegion(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+        guard !coords.isEmpty else { return itemsMapRegion }
+        let latitudes = coords.map { $0.latitude }
+        let longitudes = coords.map { $0.longitude }
+        let minLat = latitudes.min() ?? 44.0
+        let maxLat = latitudes.max() ?? 44.0
+        let minLon = longitudes.min() ?? -85.5
+        let maxLon = longitudes.max() ?? -85.5
+
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2.0, longitude: (minLon + maxLon) / 2.0)
+        let span = MKCoordinateSpan(latitudeDelta: max(0.01, (maxLat - minLat)), longitudeDelta: max(0.01, (maxLon - minLon)))
+        return MKCoordinateRegion(center: center, span: span)
     }
 
     // Optimized visibleItems helper (avoids repeated normalization per item)
@@ -267,11 +363,6 @@ private struct ClusterAnnotationView: View {
     }
 }
 
-
-
-
-
 #Preview {
     ClusterContentView()
 }
-

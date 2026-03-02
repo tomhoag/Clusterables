@@ -154,7 +154,7 @@ public class ClusterManager<CR: Clusterable> {
     @MainActor
     public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int, useKDTree: Bool = true) async  -> (TimeInterval, TimeInterval) {
         guard let distance = mapProxy.degrees(fromPixels: spacing) else { return (0, 0) }
-        let (newClusters, overallElapsed, dbscanElapsed) = await makeClusters(items, epsilon: distance, useKDTree: useKDTree)
+        let (newClusters, overallElapsed, dbscanElapsed) = await Self.makeClusters(items, epsilon: distance, useKDTree: useKDTree)
         clusters = newClusters
         return (overallElapsed, dbscanElapsed)
     }
@@ -164,7 +164,6 @@ public class ClusterManager<CR: Clusterable> {
         let lonKey: Int64
     }
 
-
     /**
      Creates clusters from the specified items using the DBSCAN algorithm.
 
@@ -173,8 +172,7 @@ public class ClusterManager<CR: Clusterable> {
          - epsilon: The maximum distance between two items for them to be considered as part of the same cluster.
      - Returns: A tuple containing the clusters, overall elapsed time, and dbscan elapsed time.
      */
-    @MainActor
-    private func makeClusters(_ items: [CR], epsilon: Double, useKDTree: Bool = true) async -> ([Cluster<CR>], TimeInterval, TimeInterval) {
+    private static func makeClusters(_ items: [CR], epsilon: Double, useKDTree: Bool = true) async -> ([Cluster<CR>], TimeInterval, TimeInterval) {
 
         let overallStart = DispatchTime.now()
 
@@ -201,7 +199,6 @@ public class ClusterManager<CR: Clusterable> {
             let key = PointKey(latKey: latKey, lonKey: lonKey)
             coordIndexMap[key, default: []].append(i)
         }
-
 
         // Pass only `points` and the precomputed `coordIndexMap` into the detached task.
         // Avoid any fallback searches; rely on the stable point key mapping.
@@ -258,7 +255,6 @@ public class ClusterManager<CR: Clusterable> {
         let overallEnd = DispatchTime.now()
         let overallElapsed = Double(overallEnd.uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
 
-        print("makeClusters \(items.count) took \(overallElapsed)s (dbscan: \(dbscanElapsed)s) kdtree:\(useKDTree)")
         return (clusters, overallElapsed, dbscanElapsed)
     }
 }
