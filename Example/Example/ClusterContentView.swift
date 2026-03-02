@@ -14,7 +14,11 @@ struct ClusterContentView: View, ClusterManagerProvider {
     @State var clusterManager = ClusterManager<City>()
     @State var items: [City] =  []
     @State var cameraPosition: MapCameraPosition = .automatic
+
+    @State private var useClustering = true
     @State private var useKDTree = true
+    @State private var onlyVisible = true
+
     @State private var lastUpdateDuration: TimeInterval?
     @State private var dbscanDuration: TimeInterval?
 
@@ -77,7 +81,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     .onMapCameraChange { context in
                         cachedMapProxy = mapProxy
                         cachedItemsRegion = context.region
-                        scheduleClusterUpdate()
+                        scheduleClusterUpdate(withVisibleOnly: onlyVisible)
                     }
                     .animation(.easeIn, value: cameraPosition)
                     .mapStyle(
@@ -123,6 +127,32 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 5) {
+                        Text("Render Only Visible Cities")
+                        Toggle("", isOn: $onlyVisible)
+                            .labelsHidden()
+                    }
+                    .padding(.top, 12)
+
+                    HStack(spacing: 5) {
+                        Text("Use Clustering")
+                        Toggle("", isOn: $useClustering)
+                            .labelsHidden()
+                    }
+                    .padding(.top, 12)
+
+                    if(useClustering) {
+                        HStack(spacing: 5) {
+                            Text("Use KD-Tree")
+                            Toggle("", isOn: $useKDTree)
+                                .labelsHidden()
+                        }
+                        .padding(.top, 12)
+                    }
+                }
+                .padding(.trailing)
+
+                VStack(alignment: .trailing, spacing: 4) {
                     Picker("", selection: $selectedUSCityFile) {
                         ForEach(availableUSCityFiles, id: \.self) {
                             Text($0).tag($0)
@@ -157,19 +187,12 @@ struct ClusterContentView: View, ClusterManagerProvider {
                                 guard oldValue != newValue else { return }
                                 Task { @MainActor in
                                     isLoading = true
-                                    scheduleClusterUpdate() // schedule a new update with the new spacing value
+                                    scheduleClusterUpdate(withVisibleOnly: onlyVisible) // schedule a new update with the new spacing value
                                     isLoading = false
                                 }
                             }
                     }
                     .padding(.top, 8)
-
-                    HStack(spacing: 5) {
-                        Text("Use KD-Tree")
-                        Toggle("", isOn: $useKDTree)
-                            .labelsHidden()
-                    }
-                    .padding(.top, 12)
 
                     Text(lastUpdateText)
                         .font(.caption)
