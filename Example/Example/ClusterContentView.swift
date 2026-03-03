@@ -121,7 +121,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         Text("Loading \(selectedUSCityFile)")
                             .font(.caption)
                             .foregroundStyle(Color.secondary)
-                        }
+                    }
                     )
                     .progressViewStyle(.circular)
                     .scaleEffect(1.5)
@@ -140,6 +140,10 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     } else {
                         Text("Visible on Map: \(visibleItems.count)")
                     }
+
+                    Text(lastUpdateText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 .padding(.leading)
                 Spacer()
@@ -216,9 +220,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     }
                     .padding(.top, 12)
 
-                    Text(lastUpdateText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
                 .padding(.trailing)
             }
@@ -227,18 +228,28 @@ struct ClusterContentView: View, ClusterManagerProvider {
     }
 
     private var lastUpdateText: String {
-        if let d = lastUpdateDuration, let s = dbscanDuration {
-            return "Last update: \(Int(d * 1000)) ms dbscan: \(Int(s * 1000))ms"
+        if useClustering {
+            if let d = lastUpdateDuration, let s = dbscanDuration {
+                return "Last update: \(Int(d * 1000)) ms dbscan: \(Int(s * 1000))ms"
+            } else {
+                return "Last update: -- dbscan: -- "
+            }
         } else {
-            return "Last update: -- dbscan: -- "
+            if let d = lastUpdateDuration {
+                return "Last update: \(Int(d * 1000)) ms"
+            } else {
+                return "Last update: --"
+            }
         }
     }
 
+    // MARK: Computed Regions
     var itemsMapRegion:MKCoordinateRegion {
         let coordinateArray = items.map { $0.coordinate }
         return coordinateArray.boundingRegion() ?? defaultRegion
     }
 
+    // MARK: Update Scheduling
     private func scheduleUpdate(withVisibleOnly:Bool = true, delayMilliseconds: UInt64 = 150) {
         if useClustering {
             scheduleClusterUpdate(withVisibleOnly: withVisibleOnly, delayMilliseconds: delayMilliseconds)
@@ -251,17 +262,19 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
         updateTask?.cancel()
 
-        if withVisibleOnly {
-            // snapshot lightweight state so background work doesn't repeatedly read @State
-            let itemsSnapshot = self.items
-            let regionSnapshot = self.cachedItemsRegion
-            let delay = delayMilliseconds
+        // snapshot lightweight state so background work doesn't repeatedly read @State
+        let itemsSnapshot = self.items
+        let regionSnapshot = self.cachedItemsRegion
+        let delay = delayMilliseconds
 
-            updateTask = Task.detached { [itemsSnapshot, regionSnapshot, delay] in
-                // simple debounce
-                try? await Task.sleep(nanoseconds: delay * 1_000_000)
-                guard !Task.isCancelled else { return }
+        updateTask = Task.detached { [itemsSnapshot, regionSnapshot, delay] in
+            // simple debounce
+            try? await Task.sleep(nanoseconds: delay * 1_000_000)
+            guard !Task.isCancelled else { return }
 
+            let overallStart = DispatchTime.now()
+
+            if withVisibleOnly {
                 // determine region to use (safe fallback to computed region)
                 let regionToUse: MKCoordinateRegion
                 if let cachedRegion = regionSnapshot {
@@ -296,11 +309,16 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         return lon >= minLon && lon <= maxLon
                     }
                 }
-                await MainActor.run { visibleItems = sourceItems }
-            }
+                let overallEnd = DispatchTime.now()
 
-        } else {
-            visibleItems = items
+                await MainActor.run {
+                    visibleItems = sourceItems
+                    self.lastUpdateDuration = Double(overallEnd.uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
+                }
+
+            } else {
+                await MainActor.run { visibleItems = items }
+            }
         }
     }
 
@@ -378,57 +396,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
             }
 
         } as? Task<Void, Never>
-    }
-
-    // local helper to compute region from coordinates
-    private func coordsToRegion(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
-        guard !coords.isEmpty else {
-            return MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
-                span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0)
-            )
-        }
-        let latitudes = coords.map { $0.latitude }
-        let longitudes = coords.map { $0.longitude }
-        let minLat = latitudes.min() ?? 44.0
-        let maxLat = latitudes.max() ?? 44.0
-        let minLon = longitudes.min() ?? -85.5
-        let maxLon = longitudes.max() ?? -85.5
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2.0, longitude: (minLon + maxLon) / 2.0)
-        let span = MKCoordinateSpan(latitudeDelta: max(0.01, (maxLat - minLat)), longitudeDelta: max(0.01, (maxLon - minLon)))
-        return MKCoordinateRegion(center: center, span: span)
-    }
-
-    // Optimized visibleItems helper (avoids repeated normalization per item)
-    private func visibleItems(in region: MKCoordinateRegion, from allItems: [City]) -> [City] {
-        // normalize helper
-        func normalize(_ lon: Double) -> Double {
-            var l = lon
-            while l < -180.0 { l += 360.0 }
-            while l > 180.0 { l -= 360.0 }
-            return l
-        }
-
-        let centerLon = normalize(region.center.longitude)
-        let lonDelta = region.span.longitudeDelta
-        let minLon = normalize(centerLon - lonDelta / 2.0)
-        let maxLon = normalize(centerLon + lonDelta / 2.0)
-        let minLat = region.center.latitude - region.span.latitudeDelta / 2.0
-        let maxLat = region.center.latitude + region.span.latitudeDelta / 2.0
-
-        let crossesAntimeridian = minLon > maxLon
-
-        return allItems.filter { item in
-            let lat = item.coordinate.latitude
-            guard lat >= minLat && lat <= maxLat else { return false }
-
-            let lon = normalize(item.coordinate.longitude)
-            if crossesAntimeridian {
-                return lon >= minLon || lon <= maxLon
-            } else {
-                return lon >= minLon && lon <= maxLon
-            }
-        }
     }
 }
 
