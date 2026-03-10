@@ -13,13 +13,14 @@
  groups points with many nearby neighbors and marks points in low-density
  regions as outliers.
  
- This implementation uses KDTree for efficient spatial queries.
- 
  - Authors: Ester, Martin; Kriegel, Hans-Peter; Sander, Jörg; Xu, Xiaowei (1996)
             "A density-based algorithm for discovering clusters
             in large spatial databases with noise."
             _Proceedings of the Second International Conference on
             Knowledge Discovery and Data Mining (KDD-96)_.
+
+ This implementation uses KDTree for efficient spatial queries.
+
  */
 
 import KDTree
@@ -36,14 +37,36 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     }
     
     /// Clusters values using the DBSCAN algorithm with KDTree acceleration.
+    ///
+    /// This method identifies dense regions in the dataset by finding points that have
+    /// at least `minimumPoints` neighbors within `epsilon` distance. Points that don't
+    /// meet this density criterion are classified as outliers (noise).
+    ///
     /// - Parameters:
-    ///   - epsilon: The maximum distance from a specified value
-    ///              for which other values are considered to be neighbors.
-    ///   - minimumPoints: The minimum number of points
-    ///                    required to form a dense region.
-    /// - Returns: A tuple containing an array of clustered values
-    ///            and an array of outlier values.
+    ///   - epsilon: The maximum distance from a specified value for which other values
+    ///              are considered to be neighbors. Must be positive and finite.
+    ///              Smaller values result in more, tighter clusters; larger values
+    ///              result in fewer, looser clusters.
+    ///   - minimumPoints: The minimum number of points required to form a dense region
+    ///                    (including the point itself). Common values are 3-5 for 2D data.
+    ///                    Must be non-negative. Higher values require denser regions
+    ///                    to form clusters.
+    ///
+    /// - Returns: A tuple containing:
+    ///   - `clusters`: An array of value arrays, where each inner array represents
+    ///                 a cluster of points meeting the density criteria. Clusters are
+    ///                 returned in the order they were discovered.
+    ///   - `outliers`: An array of points that don't belong to any cluster, considered
+    ///                 noise points in sparse regions. These are points that don't have
+    ///                 enough neighbors within epsilon distance.
+    ///
+    /// - Complexity: O(n log n) average case with KDTree acceleration, where n is the
+    ///               number of values. Worst case is O(n²) for very dense data.
+    ///
+    /// - Precondition: `epsilon` must be positive and finite.
+    /// - Precondition: `minimumPoints` must be non-negative.
     public func cluster(epsilon: Double, minimumPoints: Int) -> (clusters: [[Value]], outliers: [Value]) {
+        precondition(epsilon > 0 && epsilon.isFinite, "epsilon must be positive and finite")
         precondition(minimumPoints >= 0, "minimumPoints must be non-negative")
         
         guard !values.isEmpty else { return ([], []) }
