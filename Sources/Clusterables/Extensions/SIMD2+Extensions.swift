@@ -10,7 +10,7 @@ import simd
 import KDTree
 
 
-extension SIMD2<Double>: KDTreePoint {
+extension SIMD2<Double>: @retroactive KDTreePoint {
     public static var dimensions: Int {
         return 2
     }

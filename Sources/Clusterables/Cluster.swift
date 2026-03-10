@@ -8,7 +8,7 @@
  in SwiftUI applications using the DBSCAN algorithm.
  */
 
-import DBSCAN
+//import DBSCAN
 import KDTree
 import MapKit
 import SwiftUI
@@ -173,9 +173,9 @@ public class ClusterManager<CR: Clusterable> {
         - useKDTree: Whether to use KDTree for spatial indexing (default: true). KDTree provides O(n log n) complexity vs O(n²) without it.
      */
     @MainActor
-    public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int, useKDTree: Bool = true) async {
+    public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int) async {
         guard let distance = mapProxy.degrees(fromPixels: spacing) else { return }
-        let newClusters = await Self.makeClusters(items, epsilon: distance, useKDTree: useKDTree)
+        let newClusters = await Self.makeClusters(items, epsilon: distance)
         clusters = newClusters
     }
 
@@ -272,7 +272,7 @@ public class ClusterManager<CR: Clusterable> {
          - Time: O(n log n) with KDTree, O(n²) without KDTree, where n is the number of items
          - Space: O(n) for storing points, indices, and clusters
      */
-    private static func makeClusters(_ items: [CR], epsilon: Double, useKDTree: Bool = true) async -> [Cluster<CR>] {
+    private static func makeClusters(_ items: [CR], epsilon: Double) async -> [Cluster<CR>] {
 
         guard !items.isEmpty else {
             return []
@@ -282,20 +282,10 @@ public class ClusterManager<CR: Clusterable> {
         let (points, coordIndexMap) = preprocessItems(items)
 
         // Step 2: Run DBSCAN clustering in a detached task
-        let rawIndexClusters: [IndexCluster] = await Task.detached { [points, coordIndexMap, useKDTree, epsilon] () -> [IndexCluster] in
+        let rawIndexClusters: [IndexCluster] = await Task.detached { [points, coordIndexMap, epsilon] () -> [IndexCluster] in
 
-            let dbscan = DBSCAN(points)
-            
-            let rawClusters: [PointCluster]
-            if useKDTree {
-                (rawClusters, _) = dbscan(epsilon: epsilon, minimumNumberOfPoints: 1)
-            } else {
-                (rawClusters, _) = dbscan(
-                    epsilon: epsilon,
-                    minimumNumberOfPoints: 1,
-                    distanceFunction: simd.distance
-                )
-            }
+            let clusterer = DBSCANClusterer(values: points)
+            let (rawClusters, _) = clusterer.cluster(epsilon: epsilon, minimumPoints: 1)
             
             // Step 3: Remap SIMD points back to original indices
             return remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)

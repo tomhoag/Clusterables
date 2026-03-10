@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		007B07952F267EF800B0DB69 /* Clusterables in Frameworks */ = {isa = PBXBuildFile; productRef = 007B07942F267EF800B0DB69 /* Clusterables */; };
+		006697742F60B1B400F70BC3 /* Clusterables in Frameworks */ = {isa = PBXBuildFile; productRef = 006697732F60B1B400F70BC3 /* Clusterables */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -43,7 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				007B07952F267EF800B0DB69 /* Clusterables in Frameworks */,
+				006697742F60B1B400F70BC3 /* Clusterables in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,7 +102,7 @@
 			);
 			name = Example;
 			packageProductDependencies = (
-				007B07942F267EF800B0DB69 /* Clusterables */,
+				006697732F60B1B400F70BC3 /* Clusterables */,
 			);
 			productName = Example;
 			productReference = 007B077A2F267DA700B0DB69 /* Example.app */;
@@ -155,7 +155,7 @@
 			mainGroup = 007B07712F267DA700B0DB69;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				007B07932F267EF800B0DB69 /* XCLocalSwiftPackageReference "../../Clusterables" */,
+				006697722F60B1B400F70BC3 /* XCLocalSwiftPackageReference "../../Clusterables" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 007B077B2F267DA700B0DB69 /* Products */;
@@ -446,14 +446,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		007B07932F267EF800B0DB69 /* XCLocalSwiftPackageReference "../../Clusterables" */ = {
+		006697722F60B1B400F70BC3 /* XCLocalSwiftPackageReference "../../Clusterables" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../../Clusterables;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		007B07942F267EF800B0DB69 /* Clusterables */ = {
+		006697732F60B1B400F70BC3 /* Clusterables */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Clusterables;
 		};

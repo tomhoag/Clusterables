@@ -25,7 +25,6 @@ class ClusterMapViewModel {
     /// Settings related to clustering behavior
     struct ClusteringSettings {
         var enabled: Bool = false
-        var useKDTree: Bool = true
         var spacing: Double = MapConstants.defaultSpacing
         var onlyVisible: Bool = true
     }
@@ -301,7 +300,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
             
             ClusteringControlsView(
                 useClustering: $viewModel.clusteringSettings.enabled,
-                useKDTree: $viewModel.clusteringSettings.useKDTree,
                 spacing: $viewModel.clusteringSettings.spacing,
                 onlyVisible: viewModel.clusteringSettings.onlyVisible,
                 onSpacingChange: {
@@ -396,8 +394,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     _ = await viewModel.clusterManager.update(
                         [],
                         mapProxy: proxy,
-                        spacing: Int(viewModel.clusteringSettings.spacing),
-                        useKDTree: viewModel.clusteringSettings.useKDTree
+                        spacing: Int(viewModel.clusteringSettings.spacing)
                     )
                 }
             }
@@ -505,7 +502,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
     ///   - delayMilliseconds: Debounce delay before executing the update
     private func scheduleClusterUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = MapConstants.updateDebounceMS) {
         let spacingSnapshot = Int(viewModel.clusteringSettings.spacing)
-        let useKDTreeSnapshot = viewModel.clusteringSettings.useKDTree
         let itemsSnapshot = viewModel.items
         let regionSnapshot = viewModel.cachedItemsRegion
         let defaultRegionSnapshot = viewModel.defaultRegion
@@ -540,8 +536,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         await self.viewModel.clusterManager.update(
                             sourceItems,
                             mapProxy: proxy,
-                            spacing: spacingSnapshot,
-                            useKDTree: useKDTreeSnapshot
+                            spacing: spacingSnapshot
                         )
                     }
                 }
@@ -590,7 +585,6 @@ private struct StatisticsView: View {
 /// Controls for enabling clustering and adjusting clustering parameters.
 private struct ClusteringControlsView: View {
     @Binding var useClustering: Bool
-    @Binding var useKDTree: Bool
     @Binding var spacing: Double
     let onlyVisible: Bool
     let onSpacingChange: () -> Void
@@ -601,8 +595,7 @@ private struct ClusteringControlsView: View {
             
             if useClustering {
                 VStack(alignment: .trailing, spacing: 8) {
-                    controlRow(label: "Use KD-Tree", toggle: $useKDTree)
-                    
+
                     HStack(spacing: 8) {
                         Text("Spacing")
                             .font(.caption)
