@@ -183,11 +183,12 @@ struct ClusterContentView: View, ClusterManagerProvider {
     var clusterManager: ClusterManager<City> { viewModel.clusterManager }
 
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             mapView
+            Divider()
             controlsView
+                .padding()
         }
-        .padding()
     }
     
     // MARK: - Map View
@@ -287,7 +288,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
     // MARK: - Controls View
     
     private var controlsView: some View {
-        HStack {
+        HStack(spacing: 24) {
             StatisticsView(
                 totalCities: viewModel.items.count,
                 useClustering: viewModel.clusteringSettings.enabled,
@@ -295,7 +296,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 cityCount: cityCount,
                 clusterCount: clusterCount
             )
-            .padding(.leading)
             
             Spacer()
             
@@ -312,7 +312,9 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     }
                 }
             )
-            .padding(.trailing)
+            
+            Divider()
+                .frame(height: 60)
             
             DataSourceControlsView(
                 availableFiles: viewModel.dataSource.availableFiles,
@@ -322,7 +324,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     handleFileChange(oldFile: oldFile, newFile: newFile)
                 }
             )
-            .padding(.trailing)
         }
     }
     
@@ -560,13 +561,28 @@ private struct StatisticsView: View {
     let clusterCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Total cities: \(totalCities)")
-            Text("Visible on Map: \(visibleCount)")
+        VStack(alignment: .leading, spacing: 6) {
+            statisticRow(label: "Total Cities", value: "\(totalCities)")
+            statisticRow(label: "Visible", value: "\(visibleCount)")
+            
             if useClustering {
-                Text("  as Cities: \(cityCount)")
-                Text("  as Clusters: \(clusterCount)")
+                HStack(spacing: 12) {
+                    statisticRow(label: "Cities", value: "\(cityCount)")
+                    statisticRow(label: "Clusters", value: "\(clusterCount)")
+                }
+                .padding(.leading, 8)
             }
+        }
+        .font(.system(.body, design: .rounded))
+    }
+    
+    private func statisticRow(label: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label + ":")
+                .foregroundStyle(.secondary)
+            Text(value)
+                .fontWeight(.medium)
+                .foregroundStyle(.primary)
         }
     }
 }
@@ -580,35 +596,40 @@ private struct ClusteringControlsView: View {
     let onSpacingChange: () -> Void
     
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(spacing: 5) {
-                Text("Use Clustering")
-                Toggle("", isOn: $useClustering)
-                    .labelsHidden()
-            }
-            .padding(.top, 4)
+        VStack(alignment: .trailing, spacing: 12) {
+            controlRow(label: "Clustering", toggle: $useClustering)
             
             if useClustering {
-                HStack(spacing: 5) {
-                    Text("Use KD-Tree")
-                    Toggle("", isOn: $useKDTree)
-                        .labelsHidden()
+                VStack(alignment: .trailing, spacing: 8) {
+                    controlRow(label: "Use KD-Tree", toggle: $useKDTree)
+                    
+                    HStack(spacing: 8) {
+                        Text("Spacing")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("\(Int(spacing))")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .monospacedDigit()
+                            .foregroundStyle(.primary)
+                            .frame(width: 30, alignment: .trailing)
+                        Slider(value: $spacing, in: MapConstants.spacingRange, step: MapConstants.spacingStep)
+                            .frame(width: MapConstants.sliderWidth)
+                            .onChange(of: spacing) { oldValue, newValue in
+                                guard oldValue != newValue else { return }
+                                onSpacingChange()
+                            }
+                    }
                 }
-                .padding(.top, 12)
-                
-                HStack {
-                    Text("Spacing \(Int(spacing))")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Slider(value: $spacing, in: MapConstants.spacingRange, step: MapConstants.spacingStep)
-                        .frame(width: MapConstants.sliderWidth)
-                        .onChange(of: spacing) { oldValue, newValue in
-                            guard oldValue != newValue else { return }
-                            onSpacingChange()
-                        }
-                }
-                .padding(.top, 8)
             }
+        }
+    }
+    
+    private func controlRow(label: String, toggle: Binding<Bool>) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+            Toggle("", isOn: toggle)
+                .labelsHidden()
         }
     }
 }
@@ -621,24 +642,28 @@ private struct DataSourceControlsView: View {
     let onFileChange: (String, String) -> Void
     
     var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Picker("", selection: $selectedFile) {
-                ForEach(availableFiles, id: \.self) {
-                    Text($0).tag($0)
+        VStack(alignment: .trailing, spacing: 12) {
+            VStack(alignment: .trailing, spacing: 6) {
+                Text("Data Source")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                Picker("", selection: $selectedFile) {
+                    ForEach(availableFiles, id: \.self) {
+                        Text($0).tag($0)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: selectedFile) { oldFile, newFile in
+                    onFileChange(oldFile, newFile)
                 }
             }
-            .pickerStyle(.menu)
-            .padding(.top, 12)
-            .onChange(of: selectedFile) { oldFile, newFile in
-                onFileChange(oldFile, newFile)
-            }
             
-            HStack(spacing: 5) {
-                Text("Render Only Visible Cities")
+            HStack(spacing: 8) {
+                Text("Visible Only")
                 Toggle("", isOn: $onlyVisible)
                     .labelsHidden()
             }
-            .padding(.top, 12)
         }
     }
 }
