@@ -1,6 +1,6 @@
 # Clusterables
 
-A SwiftUI-native package for clustering MapKit map points — no `UIViewRepresentable` required. Keeps your maps fast, clean, and easy to navigate no matter how many points you're displaying.
+A SwiftUI-native package for clustering MapKit map points — no UIViewRepresentable required. Keeps your maps fast, clean, and easy to navigate no matter how many points you're displaying. Because clustering is density-based, groups form naturally around real geographic concentrations — not arbitrary grid boundaries.
 
 Powered by **DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) paired with a **KD-Tree** for fast spatial lookups. This combination means clustering is both accurate and efficient — DBSCAN naturally handles clusters of varying shapes and sizes, while the KD-Tree keeps nearest-neighbor searches fast even with thousands of points.
 
@@ -9,9 +9,9 @@ Powered by **DBSCAN** (Density-Based Spatial Clustering of Applications with Noi
 
 ## Requirements
 
-- iOS 17.0+
-- Swift 5.9+
-- Xcode 15.0+
+- iOS 26.0+
+- Swift 6.0+
+- Xcode 26.0+
 
 ---
 
@@ -33,7 +33,7 @@ Follow these steps to add clustering to your SwiftUI map. The general flow is: w
 
 ### Step 1 — Conform your model to `Clusterable`
 
-Any type you want to display on the map must conform to the `Clusterable` protocol by exposing a `CLLocationCoordinate2D`:
+Any point type that you want to cluster on the map must conform to the `Clusterable` protocol by exposing a `CLLocationCoordinate2D`:
 
 ```swift
 struct City: Clusterable {
@@ -69,7 +69,7 @@ MapReader { mapProxy in
 
 ### Step 4 — Render clusters and individual annotations
 
-Iterate over `clusterManager.clusters` to build your map annotations. When a cluster contains a single item (`size == 1`), render it as a regular annotation. When it contains multiple items, render a cluster annotation:
+Iterate over `clusterManager.clusters` to build your map annotations. In the code below, when a cluster contains a single item (`size == 1`), it is rendered using a red circle. When it contains multiple items, it is rendered using a `ClusterAnnotationView` ( found in the Example project)
 
 ```swift
 Map(position: $cameraPosition, interactionModes: .all) {
@@ -93,7 +93,7 @@ Map(position: $cameraPosition, interactionModes: .all) {
 
 ### Step 5 — Trigger cluster updates
 
-Call `clusterManager.update` whenever the map appears or the camera position changes. This recalculates clusters based on the current zoom level:
+Call `clusterManager.update` whenever the map appears, the camera position changes or whenever you want to update the clusters. Note that `spacing` is used to determine how "tightly" map items should be clustered.  A small spacing value will yeild fewer clusters.
 
 ```swift
 .onAppear {

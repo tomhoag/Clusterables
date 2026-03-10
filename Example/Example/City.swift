@@ -10,7 +10,7 @@ import SwiftUI
 import Clusterables
 
 /**
- A structure representing a city in Michigan.
+ A structure representing a city.
 
  This structure encapsulates the basic information about a Michigan city including
  its unique identifier, name, and geographic coordinates.
