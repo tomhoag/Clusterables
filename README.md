@@ -113,6 +113,8 @@ Call `clusterManager.update` whenever the map appears, the camera position chang
 }
 ```
 
+Although `clusterManager.update` is called on the `@MainActor`, the clustering itself is performed off the main thread. Results are then returned on the main thread.
+
 ---
 
 ## Demo
