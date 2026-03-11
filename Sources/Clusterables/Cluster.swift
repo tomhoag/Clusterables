@@ -1,5 +1,6 @@
 import KDTree
 import MapKit
+import os
 import SwiftUI
 import simd
 
@@ -372,7 +373,17 @@ public class ClusterManager<CR: Clusterable> {
         let rawIndexClusters: [IndexCluster] = await Task.detached { [points, coordIndexMap, epsilon] () -> [IndexCluster] in
 
             let clusterer = DBSCANClusterer(values: points)
-            let (rawClusters, _) = clusterer.cluster(epsilon: epsilon, minimumPoints: 1)
+            // Using minimumPoints = 1, all items will come back in clusters although some clusters may be size 1
+            // This makes it more straight forward when rendinging annotations on the map -- clusters of size 1 are individual points
+            // and can be rendered that way, while size > 1 are clusters and can be rendered with a cluster annotation.
+            let rawClusters: [[SIMD2<Double>]]
+            do {
+                (rawClusters, _) = try clusterer.cluster(epsilon: epsilon, minimumPoints: 1)
+            } catch {
+                Logger(subsystem: "Clusterables", category: "ClusterManager")
+                    .error("cluster threw unexpectedly: \(error)")
+                return []
+            }
             
             // Step 3: Remap SIMD points back to original indices
             return remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)

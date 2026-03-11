@@ -16,22 +16,22 @@ struct DBSCANClustererTests {
     // MARK: - Basic Clustering Tests
     
     @Test("Empty dataset returns empty results")
-    func emptyDataset() {
+    func emptyDataset() throws {
         let points: [SIMD2<Double>] = []
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.isEmpty, "Empty dataset should produce no clusters")
         #expect(outliers.isEmpty, "Empty dataset should have no outliers")
     }
     
     @Test("Single point becomes outlier")
-    func singlePoint() {
+    func singlePoint() throws {
         let points = [SIMD2<Double>(1.0, 1.0)]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.isEmpty, "Single point cannot form a cluster with minPoints=2")
         #expect(outliers.count == 1, "Single point should be an outlier")
@@ -39,7 +39,7 @@ struct DBSCANClustererTests {
     }
     
     @Test("Two nearby points form a cluster")
-    func twoNearbyPoints() {
+    func twoNearbyPoints() throws {
         let points = [
             SIMD2<Double>(1.0, 1.0),
             SIMD2<Double>(1.5, 1.5)
@@ -47,7 +47,7 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // Distance between points is ~0.707, so epsilon=1.0 should capture them
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.count == 1, "Two nearby points should form one cluster")
         #expect(clusters[0].count == 2, "Cluster should contain both points")
@@ -55,14 +55,14 @@ struct DBSCANClustererTests {
     }
     
     @Test("Two distant points are both outliers")
-    func twoDistantPoints() {
+    func twoDistantPoints() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(100.0, 100.0)
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.isEmpty, "Distant points should not cluster")
         #expect(outliers.count == 2, "Both points should be outliers")
@@ -71,7 +71,7 @@ struct DBSCANClustererTests {
     // MARK: - Multiple Cluster Tests
     
     @Test("Identifies two separate clusters")
-    func twoSeparateClusters() {
+    func twoSeparateClusters() throws {
         let points = [
             // Cluster 1: around (0, 0)
             SIMD2<Double>(0.0, 0.0),
@@ -85,7 +85,7 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.count == 2, "Should find two distinct clusters")
         #expect(outliers.isEmpty, "All points should be clustered")
@@ -96,7 +96,7 @@ struct DBSCANClustererTests {
     }
     
     @Test("Three clusters with different densities")
-    func threeClustersVariableDensity() {
+    func threeClustersVariableDensity() throws {
         let points = [
             // Dense cluster 1
             SIMD2<Double>(0.0, 0.0),
@@ -115,7 +115,7 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.5, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.5, minimumPoints: 2)
         
         #expect(clusters.count == 3, "Should find three clusters")
         #expect(outliers.isEmpty, "All points should be clustered with these parameters")
@@ -124,7 +124,7 @@ struct DBSCANClustererTests {
     // MARK: - Outlier Detection Tests
     
     @Test("Detects outliers between clusters")
-    func outliersDetection() {
+    func outliersDetection() throws {
         let points = [
             // Cluster 1
             SIMD2<Double>(0.0, 0.0),
@@ -141,7 +141,7 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters.count == 2, "Should find two clusters")
         #expect(outliers.count == 1, "Should have one outlier")
@@ -149,7 +149,7 @@ struct DBSCANClustererTests {
     }
     
     @Test("All points become outliers with small epsilon")
-    func allOutliersSmallEpsilon() {
+    func allOutliersSmallEpsilon() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(1.0, 1.0),
@@ -159,7 +159,7 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // With very small epsilon, no points are neighbors
-        let (clusters, outliers) = clusterer.cluster(epsilon: 0.001, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.001, minimumPoints: 2)
         
         #expect(clusters.isEmpty, "No clusters should form with tiny epsilon")
         #expect(outliers.count == 4, "All points should be outliers")
@@ -168,7 +168,7 @@ struct DBSCANClustererTests {
     // MARK: - Parameter Sensitivity Tests
     
     @Test("Larger epsilon merges clusters")
-    func epsilonMergesClusters() {
+    func epsilonMergesClusters() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(0.5, 0.5),
@@ -178,17 +178,17 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // Small epsilon: two clusters
-        let (smallClusters, _) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (smallClusters, _) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         #expect(smallClusters.count == 2, "Small epsilon should create two clusters")
         
         // Large epsilon: one cluster
-        let (largeClusters, _) = clusterer.cluster(epsilon: 10.0, minimumPoints: 2)
+        let (largeClusters, _) = try clusterer.cluster(epsilon: 10.0, minimumPoints: 2)
         #expect(largeClusters.count == 1, "Large epsilon should merge into one cluster")
         #expect(largeClusters[0].count == 4, "Single cluster should contain all points")
     }
     
     @Test("Higher minimumPoints creates stricter clusters")
-    func minimumPointsStrictness() {
+    func minimumPointsStrictness() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(0.5, 0.5),
@@ -197,25 +197,25 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // Low minPoints: forms cluster
-        let (lowMinClusters, lowMinOutliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (lowMinClusters, lowMinOutliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         #expect(lowMinClusters.count == 1, "Should form cluster with minPoints=2")
         #expect(lowMinOutliers.isEmpty, "No outliers with minPoints=2")
         
         // High minPoints: all become outliers
-        let (highMinClusters, highMinOutliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 4)
+        let (highMinClusters, highMinOutliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 4)
         #expect(highMinClusters.isEmpty, "Cannot form cluster with minPoints=4 and only 3 points")
         #expect(highMinOutliers.count == 3, "All points should be outliers")
     }
     
     @Test("minimumPoints of 1 clusters all connected points")
-    func minimumPointsOne() {
+    func minimumPointsOne() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(0.5, 0.0)
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 1)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 1)
         
         #expect(clusters.count == 1, "Even single points form clusters with minPoints=1")
         #expect(clusters[0].count == 2, "Both points should cluster together")
@@ -225,7 +225,7 @@ struct DBSCANClustererTests {
     // MARK: - Shape Detection Tests
     
     @Test("Detects linear cluster")
-    func linearCluster() {
+    func linearCluster() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(1.0, 0.0),
@@ -235,7 +235,7 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.5, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.5, minimumPoints: 2)
         
         #expect(clusters.count == 1, "Linear points should form one cluster")
         #expect(clusters[0].count == 5, "All points should be in the cluster")
@@ -243,7 +243,7 @@ struct DBSCANClustererTests {
     }
     
     @Test("Detects circular cluster")
-    func circularCluster() {
+    func circularCluster() throws {
         // Create points in a circle
         var points: [SIMD2<Double>] = []
         let radius = 5.0
@@ -259,7 +259,7 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // Distance between adjacent points on circle ≈ 2 * radius * sin(π/numPoints) ≈ 3.83
-        let (clusters, outliers) = clusterer.cluster(epsilon: 4.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 4.0, minimumPoints: 2)
         
         #expect(clusters.count == 1, "Circular points should form one cluster")
         #expect(clusters[0].count == 8, "All points should be clustered")
@@ -269,7 +269,7 @@ struct DBSCANClustererTests {
     // MARK: - Edge Case Tests
     
 //    @Test("Identical points cluster together")
-//    func identicalPoints() {
+//    func identicalPoints() throws {
 //        let points = [
 //            SIMD2<Double>(5.0, 5.0),
 //            SIMD2<Double>(5.0, 5.0),
@@ -277,7 +277,7 @@ struct DBSCANClustererTests {
 //        ]
 //        let clusterer = DBSCANClusterer(values: points)
 //        
-//        let (clusters, outliers) = clusterer.cluster(epsilon: 0.1, minimumPoints: 2)
+//        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.1, minimumPoints: 2)
 //        
 //        #expect(clusters.count == 1, "Identical points should cluster")
 //        #expect(clusters[0].count == 3, "All identical points in one cluster")
@@ -285,7 +285,7 @@ struct DBSCANClustererTests {
 //    }
     
     @Test("Very large epsilon creates single cluster")
-    func veryLargeEpsilon() {
+    func veryLargeEpsilon() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(100.0, 100.0),
@@ -293,7 +293,7 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1000.0, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1000.0, minimumPoints: 2)
         
         #expect(clusters.count == 1, "Very large epsilon should capture all points")
         #expect(clusters[0].count == 3, "All points in single cluster")
@@ -303,7 +303,7 @@ struct DBSCANClustererTests {
     // MARK: - Determinism Tests
     
     @Test("Algorithm is deterministic")
-    func determinism() {
+    func determinism() throws {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(0.5, 0.5),
@@ -314,8 +314,8 @@ struct DBSCANClustererTests {
         ]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters1, outliers1) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
-        let (clusters2, outliers2) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters1, outliers1) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+        let (clusters2, outliers2) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
         
         #expect(clusters1.count == clusters2.count, "Cluster count should be deterministic")
         #expect(outliers1.count == outliers2.count, "Outlier count should be deterministic")
@@ -329,7 +329,7 @@ struct DBSCANClustererTests {
     // MARK: - Real-World Scenario Tests
     
     @Test("Geographic coordinates clustering (San Francisco)")
-    func geographicClustering() {
+    func geographicClustering() throws {
         // Real SF locations (lat, lon)
         let points = [
             // Downtown cluster
@@ -347,7 +347,7 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // 0.01 degrees ≈ 1.1 km at this latitude
-        let (clusters, outliers) = clusterer.cluster(epsilon: 0.01, minimumPoints: 2)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.01, minimumPoints: 2)
         
         #expect(clusters.count == 2, "Should find downtown and airport clusters")
         #expect(outliers.count == 1, "Berkeley point should be an outlier")
@@ -358,7 +358,7 @@ struct DBSCANClustererTests {
     }
     
     @Test("High-density urban area clustering")
-    func highDensityClustering() {
+    func highDensityClustering() throws {
         // Simulate many points in small area
         var points: [SIMD2<Double>] = []
         for x in 0..<5 {
@@ -368,7 +368,7 @@ struct DBSCANClustererTests {
         }
         
         let clusterer = DBSCANClusterer(values: points)
-        let (clusters, outliers) = clusterer.cluster(epsilon: 0.15, minimumPoints: 3)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.15, minimumPoints: 3)
         
         #expect(!clusters.isEmpty, "High density area should form clusters")
         #expect(outliers.count <= 4, "Corner points might be outliers, but most should cluster")
@@ -377,46 +377,47 @@ struct DBSCANClustererTests {
         #expect(totalClustered >= 20, "Most of the 25 points should be clustered")
     }
     
-    // MARK: - Precondition Tests
+    // MARK: - Error Tests
     
-//    @Test("Negative epsilon triggers precondition", .bug("https://github.com/example/issue/123"))
-//    func negativeEpsilon() {
-//        let points = [SIMD2<Double>(0.0, 0.0)]
-//        let clusterer = DBSCANClusterer(values: points)
-//        
-//        #expect(
-//            performing: {
-//                _ = clusterer.cluster(epsilon: -1.0, minimumPoints: 2)
-//            },
-//            throws: { error in
-//                // In Swift Testing, preconditions cause test crashes
-//                // This test documents expected behavior
-//                true
-//            }
-//        )
-//    }
+    @Test("Negative epsilon throws invalidEpsilon")
+    func negativeEpsilon() {
+        let points = [SIMD2<Double>(0.0, 0.0)]
+        let clusterer = DBSCANClusterer(values: points)
+        
+        #expect(throws: ClusterError.invalidEpsilon(-1.0)) {
+            try clusterer.cluster(epsilon: -1.0, minimumPoints: 2)
+        }
+    }
     
-    @Test("Very small epsilon is valid but produces all outliers")
-    func verySmallEpsilon() {
+    @Test("Negative minimumPoints throws invalidMinimumPoints")
+    func negativeMinimumPoints() {
+        let points = [SIMD2<Double>(0.0, 0.0)]
+        let clusterer = DBSCANClusterer(values: points)
+        
+        #expect(throws: ClusterError.invalidMinimumPoints(-1)) {
+            try clusterer.cluster(epsilon: 1.0, minimumPoints: -1)
+        }
+    }
+
+    @Test("Zero epsilon throws invalidEpsilon")
+    func zeroEpsilon() {
         let points = [
             SIMD2<Double>(0.0, 0.0),
             SIMD2<Double>(1.0, 1.0)
         ]
         let clusterer = DBSCANClusterer(values: points)
-        
-        // Zero epsilon means points must be exactly at same location
-        let (clusters, outliers) = clusterer.cluster(epsilon: 0.000001, minimumPoints: 2)
-        
-        #expect(clusters.isEmpty, "Zero epsilon should produce no clusters")
-        #expect(outliers.count == 2, "All non-identical points become outliers")
+
+        #expect(throws: ClusterError.invalidEpsilon(0)) {
+            try clusterer.cluster(epsilon: 0.0, minimumPoints: 1)
+        }
     }
     
     @Test("minimumPoints of 0 is valid")
-    func zeroMinimumPoints() {
+    func zeroMinimumPoints() throws {
         let points = [SIMD2<Double>(0.0, 0.0)]
         let clusterer = DBSCANClusterer(values: points)
         
-        let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 0)
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 0)
         
         // With minPoints=0, even single points can be core points
         #expect(clusters.count == 1, "Single point forms cluster with minPoints=0")
@@ -426,7 +427,7 @@ struct DBSCANClustererTests {
     // MARK: - Performance Characteristics Tests
     
     @Test("Handles moderate dataset efficiently")
-    func moderateDatasetPerformance() {
+    func moderateDatasetPerformance() throws {
         // Create 1000 random-ish points
         var points: [SIMD2<Double>] = []
         for i in 0..<1000 {
@@ -438,7 +439,7 @@ struct DBSCANClustererTests {
         let clusterer = DBSCANClusterer(values: points)
         
         // This should complete quickly with KD-tree (O(n log n))
-        let (clusters, _) = clusterer.cluster(epsilon: 2.0, minimumPoints: 3)
+        let (clusters, _) = try clusterer.cluster(epsilon: 2.0, minimumPoints: 3)
         
         #expect(!clusters.isEmpty, "Should find some clusters")
         #expect(clusters.count < 1000, "Should cluster points, not create 1000 clusters")

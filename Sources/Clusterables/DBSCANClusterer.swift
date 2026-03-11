@@ -7,6 +7,14 @@
 
 import KDTree
 
+/// Errors thrown by ``DBSCANClusterer/cluster(epsilon:minimumPoints:)``.
+public enum ClusterError: Error, Equatable {
+    /// The `epsilon` value is not positive and finite.
+    case invalidEpsilon(Double)
+    /// The `minimumPoints` value is negative.
+    case invalidMinimumPoints(Int)
+}
+
 /// A density-based clustering algorithm using KD-tree acceleration for efficient spatial queries.
 ///
 /// DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is a non-parametric
@@ -49,7 +57,7 @@ import KDTree
 /// ]
 ///
 /// let clusterer = DBSCANClusterer(values: points)
-/// let (clusters, outliers) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+/// let (clusters, outliers) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
 ///
 /// print("Found \(clusters.count) clusters")
 /// print("Found \(outliers.count) outliers")
@@ -155,8 +163,8 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///   number of values. Worst case is O(n²) for very dense datasets where most points
     ///   are neighbors of each other.
     ///
-    /// - Precondition: `epsilon` must be positive and finite (not NaN, not infinite).
-    /// - Precondition: `minimumPoints` must be non-negative (≥ 0).
+    /// - Throws: ``ClusterError/invalidEpsilon(_:)`` if `epsilon` is not positive and finite (not NaN, not infinite).
+    /// - Throws: ``ClusterError/invalidMinimumPoints(_:)`` if `minimumPoints` is negative.
     ///
     /// ## Example: Geographic Clustering
     /// ```swift
@@ -175,7 +183,7 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// ]
     ///
     /// let clusterer = DBSCANClusterer(values: locations)
-    /// let (clusters, outliers) = clusterer.cluster(epsilon: 0.01, minimumPoints: 2)
+    /// let (clusters, outliers) = try clusterer.cluster(epsilon: 0.01, minimumPoints: 2)
     ///
     /// print("Downtown cluster size: \(clusters[0].count)")  // 3
     /// print("Airport cluster size: \(clusters[1].count)")   // 2
@@ -187,15 +195,15 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// let clusterer = DBSCANClusterer(values: points)
     ///
     /// // Empty dataset
-    /// let (c1, o1) = clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
+    /// let (c1, o1) = try clusterer.cluster(epsilon: 1.0, minimumPoints: 2)
     /// // c1 = [], o1 = []
     ///
     /// // All points are outliers (epsilon too small)
-    /// let (c2, o2) = clusterer.cluster(epsilon: 0.0001, minimumPoints: 5)
+    /// let (c2, o2) = try clusterer.cluster(epsilon: 0.0001, minimumPoints: 5)
     /// // c2 = [], o2 = all points
     ///
     /// // All points in one cluster (epsilon too large)
-    /// let (c3, o3) = clusterer.cluster(epsilon: 1000.0, minimumPoints: 1)
+    /// let (c3, o3) = try clusterer.cluster(epsilon: 1000.0, minimumPoints: 1)
     /// // c3 = [all points], o3 = []
     /// ```
     ///
@@ -206,9 +214,9 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///   is measured in degrees. At the equator, 1 degree ≈ 111 km, but this varies by latitude.
     ///
     /// - Important: Points must be unique.
-    public func cluster(epsilon: Double, minimumPoints: Int) -> (clusters: [[Value]], outliers: [Value]) {
-        precondition(epsilon > 0 && epsilon.isFinite, "epsilon must be positive and finite")
-        precondition(minimumPoints >= 0, "minimumPoints must be non-negative")
+    public func cluster(epsilon: Double, minimumPoints: Int) throws(ClusterError) -> (clusters: [[Value]], outliers: [Value]) {
+        guard epsilon > 0 && epsilon.isFinite else { throw .invalidEpsilon(epsilon) }
+        guard minimumPoints >= 0 else { throw .invalidMinimumPoints(minimumPoints) }
         
         guard !values.isEmpty else { return ([], []) }
         
