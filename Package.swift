@@ -3,18 +3,6 @@ import PackageDescription
 
 let package = Package(
     name: "Clusterables",
-keywords: [
-    "map",
-    "mapkit",
-    "cluster",
-    "clustering",
-    "swiftui",
-    "dbscan",
-    "kd-tree",
-    "annotations",
-    "location",
-    "coordinates"
-],
     platforms: [
         .iOS(.v17),
         .macOS(.v14),
