@@ -1,3 +1,7 @@
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Ftomhoag%2FClusterables%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/tomhoag/Clusterables)
+
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Ftomhoag%2FClusterables%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/tomhoag/Clusterables)
+
 # Clusterables
 
 A SwiftUI-native package for clustering MapKit map points — no UIViewRepresentable required. Keeps your maps fast, clean, and easy to navigate no matter how many points you're displaying. Because clustering is density-based, groups form naturally around real geographic concentrations — not arbitrary grid boundaries.
