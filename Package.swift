@@ -21,6 +21,10 @@ let package = Package(
             dependencies: [
                 .product(name: "KDTree", package: "KDTree")
             ]
+        ),
+        .testTarget(
+            name: "ClusterablesTests",
+            dependencies: ["Clusterables"]
         )
     ]
 )

@@ -204,6 +204,8 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///
     /// - Important: For geographic coordinates (latitude/longitude), remember that epsilon
     ///   is measured in degrees. At the equator, 1 degree ≈ 111 km, but this varies by latitude.
+    ///
+    /// - Important: Points must be unique.
     public func cluster(epsilon: Double, minimumPoints: Int) -> (clusters: [[Value]], outliers: [Value]) {
         precondition(epsilon > 0 && epsilon.isFinite, "epsilon must be positive and finite")
         precondition(minimumPoints >= 0, "minimumPoints must be non-negative")
