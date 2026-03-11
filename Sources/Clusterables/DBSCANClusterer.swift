@@ -213,7 +213,8 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// - Important: For geographic coordinates (latitude/longitude), remember that epsilon
     ///   is measured in degrees. At the equator, 1 degree ≈ 111 km, but this varies by latitude.
     ///
-    /// - Important: Points must be unique.
+    /// - Note: Duplicate points are supported. Each occurrence is treated as a separate point
+    ///   for density calculations and cluster membership.
     public func cluster(epsilon: Double, minimumPoints: Int) throws(ClusterError) -> (clusters: [[Value]], outliers: [Value]) {
         guard epsilon > 0 && epsilon.isFinite else { throw .invalidEpsilon(epsilon) }
         guard minimumPoints >= 0 else { throw .invalidMinimumPoints(minimumPoints) }
@@ -221,20 +222,23 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
         guard !values.isEmpty else { return ([], []) }
         
         var labels = [Int?](repeating: nil, count: values.count)
-        let valueToIndex = Dictionary(uniqueKeysWithValues: values.enumerated().map { ($1, $0) })
+        var valueToIndices = [Value: [Int]]()
+        for (index, value) in values.enumerated() {
+            valueToIndices[value, default: []].append(index)
+        }
         var currentLabel = 0
         
         for i in values.indices {
             guard labels[i] == nil else { continue }
             
             let neighbors = kdTree.allPoints(within: epsilon, of: values[i])
-                .compactMap { valueToIndex[$0] }
+                .flatMap { valueToIndices[$0, default: []] }
             
             guard neighbors.count >= minimumPoints else { continue }
             
             labels[i] = currentLabel
             expandCluster(from: neighbors, label: currentLabel,
-                         labels: &labels, valueToIndex: valueToIndex,
+                         labels: &labels, valueToIndices: valueToIndices,
                          epsilon: epsilon, minimumPoints: minimumPoints)
             currentLabel += 1
         }
@@ -254,13 +258,13 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///   - initialNeighbors: Indices of the initial neighbors to expand from.
     ///   - label: The cluster label to assign to discovered points.
     ///   - labels: In-out parameter tracking cluster assignments for all points.
-    ///   - valueToIndex: Mapping from values to their array indices for fast lookup.
+    ///   - valueToIndices: Mapping from values to all of their array indices for fast lookup.
     ///   - epsilon: The neighborhood distance threshold.
     ///   - minimumPoints: The minimum neighbors required for a point to be a core point.
     ///
     /// - Complexity: O(k log n) where k is the cluster size and n is the total number of points.
     private func expandCluster(from initialNeighbors: [Int], label: Int,
-                               labels: inout [Int?], valueToIndex: [Value: Int],
+                               labels: inout [Int?], valueToIndices: [Value: [Int]],
                                epsilon: Double, minimumPoints: Int) {
         var queue = initialNeighbors
         var head = 0
@@ -273,7 +277,7 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
             labels[neighborIndex] = label
             
             let newNeighbors = kdTree.allPoints(within: epsilon, of: values[neighborIndex])
-                .compactMap { valueToIndex[$0] }
+                .flatMap { valueToIndices[$0, default: []] }
             
             if newNeighbors.count >= minimumPoints {
                 queue.append(contentsOf: newNeighbors)

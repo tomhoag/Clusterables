@@ -268,21 +268,21 @@ struct DBSCANClustererTests {
     
     // MARK: - Edge Case Tests
     
-//    @Test("Identical points cluster together")
-//    func identicalPoints() throws {
-//        let points = [
-//            SIMD2<Double>(5.0, 5.0),
-//            SIMD2<Double>(5.0, 5.0),
-//            SIMD2<Double>(5.0, 5.0)
-//        ]
-//        let clusterer = DBSCANClusterer(values: points)
-//        
-//        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.1, minimumPoints: 2)
-//        
-//        #expect(clusters.count == 1, "Identical points should cluster")
-//        #expect(clusters[0].count == 3, "All identical points in one cluster")
-//        #expect(outliers.isEmpty, "No outliers")
-//    }
+    @Test("Identical points cluster together")
+    func identicalPoints() throws {
+        let points = [
+            SIMD2<Double>(5.0, 5.0),
+            SIMD2<Double>(5.0, 5.0),
+            SIMD2<Double>(5.0, 5.0)
+        ]
+        let clusterer = DBSCANClusterer(values: points)
+        
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 0.1, minimumPoints: 2)
+        
+        #expect(clusters.count == 1, "Identical points should cluster")
+        #expect(clusters[0].count == 3, "All identical points in one cluster")
+        #expect(outliers.isEmpty, "No outliers")
+    }
     
     @Test("Very large epsilon creates single cluster")
     func veryLargeEpsilon() throws {
