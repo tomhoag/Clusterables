@@ -4,7 +4,7 @@
 
 [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Ftomhoag%2FClusterables%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/tomhoag/Clusterables)
 
-A SwiftUI-native package for clustering MapKit map points — no UIViewRepresentable required. Keeps your maps fast, clean, and easy to navigate no matter how many points you're displaying. Because clustering is density-based, groups form naturally around real geographic concentrations — not arbitrary grid boundaries.
+A SwiftUI-native package for clustering MapKit map points — no UIViewRepresentable required. Keeps your maps fast, clean, and easy to navigate no matter how many points you're displaying. Because clustering is density-based, groups form naturally around real geographic concentrations — not arbitrary grid boundaries (I'm looking at you quad-tree).
 
 Powered by **DBSCAN** (Density-Based Spatial Clustering of Applications with Noise) paired with a **KD-Tree** for fast spatial lookups. This combination means clustering is both accurate and efficient — DBSCAN naturally handles clusters of varying shapes and sizes, while the KD-Tree keeps nearest-neighbor searches fast even with thousands of points.
 
