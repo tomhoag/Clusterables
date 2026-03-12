@@ -1,6 +1,6 @@
 //
 //  ClusterContentView.swift
-//  MichiganMapClustering
+//  Example
 //
 //  Created by Tom Hoag on 3/28/25.
 //
@@ -9,169 +9,11 @@ import Clusterables
 import MapKit
 import SwiftUI
 
-// MARK: - View Model
-
-/// View model that manages all state for the cluster map view.
-///
-/// This observable class consolidates map state, clustering settings, performance metrics,
-/// and data source information into logical groups for better organization and testability.
-@Observable
-class ClusterMapViewModel {
-    var clusterManager = ClusterManager<City>()
-    var items: [City] = []
-    var visibleItems: [City] = []
-    var cameraPosition: MapCameraPosition = .automatic
-    
-    /// Settings related to clustering behavior
-    struct ClusteringSettings {
-        var enabled: Bool = false
-        var spacing: Double = MapConstants.defaultSpacing
-        var onlyVisible: Bool = true
-    }
-    var clusteringSettings = ClusteringSettings()
-    
-    /// Performance metrics for clustering operations
-    struct PerformanceMetrics {
-        var lastUpdateDuration: TimeInterval?
-        var dbscanDuration: TimeInterval?
-    }
-    var metrics = PerformanceMetrics()
-    
-    /// Data source state for file loading
-    struct DataSource {
-        var availableFiles: [String] = []
-        var selectedFile: String = ""
-        var isLoading: Bool = false
-    }
-    var dataSource = DataSource()
-    
-    // Map state
-    var cachedMapProxy: MapProxy?
-    var cachedItemsRegion: MKCoordinateRegion?
-    
-    let defaultRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
-        span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0))
-}
-
-// MARK: - Constants
-
-/// Constants used throughout the map view for consistent sizing and timing.
-enum MapConstants {
-    /// Size of individual city annotation markers
-    static let annotationSize: CGFloat = 7
-    
-    /// Debounce delay in milliseconds for map updates
-    static let updateDebounceMS: UInt64 = 150
-    
-    /// Valid range for cluster spacing slider
-    static let spacingRange: ClosedRange<Double> = 10...100
-    
-    /// Step increment for spacing slider
-    static let spacingStep: Double = 5
-    
-    /// Default spacing value for new instances
-    static let defaultSpacing: Double = 30
-    
-    /// Width of the spacing slider control
-    static let sliderWidth: CGFloat = 150
-    
-    /// Opacity of the loading overlay background
-    static let loadingOverlayOpacity: Double = 0.25
-    
-    /// Corner radius for the loading overlay
-    static let loadingOverlayCornerRadius: CGFloat = 8
-    
-    /// Scale factor for the loading spinner
-    static let loadingScaleFactor: CGFloat = 1.5
-}
-
-// MARK: - Region Helper
-
-/// Utility for map region calculations and coordinate filtering.
-enum MapRegionHelper {
-    /// Normalizes longitude to the standard [-180, 180] range.
-    ///
-    /// - Parameter longitude: The longitude value to normalize
-    /// - Returns: Normalized longitude in the range [-180, 180]
-    static func normalizeLongitude(_ longitude: Double) -> Double {
-        var lon = longitude
-        while lon < -180.0 { lon += 360.0 }
-        while lon > 180.0 { lon -= 360.0 }
-        return lon
-    }
-    
-    /// Filters items to only those within the specified region, handling antimeridian crossing.
-    ///
-    /// This method properly handles regions that cross the International Date Line (antimeridian)
-    /// by detecting when the minimum longitude is greater than the maximum longitude.
-    ///
-    /// - Parameters:
-    ///   - items: The array of items to filter
-    ///   - region: The map region to filter within
-    /// - Returns: Array of items that fall within the specified region
-    static func filterItems<T: Clusterable>(_ items: [T], in region: MKCoordinateRegion) -> [T] {
-        let centerLon = normalizeLongitude(region.center.longitude)
-        let lonDelta = region.span.longitudeDelta
-        let minLon = normalizeLongitude(centerLon - lonDelta / 2.0)
-        let maxLon = normalizeLongitude(centerLon + lonDelta / 2.0)
-        let minLat = region.center.latitude - region.span.latitudeDelta / 2.0
-        let maxLat = region.center.latitude + region.span.latitudeDelta / 2.0
-        let crossesAntimeridian = minLon > maxLon
-        
-        return items.filter { item in
-            let lat = item.coordinate.latitude
-            guard lat >= minLat && lat <= maxLat else { return false }
-            let lon = normalizeLongitude(item.coordinate.longitude)
-            if crossesAntimeridian {
-                return lon >= minLon || lon <= maxLon
-            } else {
-                return lon >= minLon && lon <= maxLon
-            }
-        }
-    }
-}
-
-// MARK: - Update Coordinator
-
-/// Actor that coordinates debounced map updates with automatic cancellation.
-///
-/// This actor ensures thread-safe management of update tasks and provides
-/// automatic cancellation of in-flight updates when new ones are scheduled.
-actor UpdateCoordinator {
-    private var currentTask: Task<Void, Never>?
-    
-    /// Schedules an update with debouncing, canceling any previous pending update.
-    ///
-    /// - Parameters:
-    ///   - delay: Delay in milliseconds before executing the work
-    ///   - work: The async work to perform after the delay
-    func scheduleUpdate(
-        delay: UInt64,
-        work: @escaping @Sendable () async -> Void
-    ) {
-        currentTask?.cancel()
-        currentTask = Task {
-            try? await Task.sleep(nanoseconds: delay * 1_000_000)
-            guard !Task.isCancelled else { return }
-            await work()
-        }
-    }
-    
-    /// Cancels all pending updates.
-    func cancelAll() {
-        currentTask?.cancel()
-    }
-}
-
-// MARK: - Main View
-
 /// A SwiftUI view that displays an interactive map with optional clustering of city markers.
 ///
 /// This view provides:
 /// - Interactive map with city annotations
 /// - Optional DBSCAN-based clustering with adjustable spacing
-/// - Performance metrics display
 /// - Multiple city data file sources
 /// - Visibility filtering for better performance
 struct ClusterContentView: View, ClusterManagerProvider {
@@ -183,47 +25,58 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
     var body: some View {
         VStack(spacing: 0) {
-            mapView
-            Divider()
-            controlsView
-                .padding()
-        }
-    }
-    
-    // MARK: - Map View
-    
-    private var mapView: some View {
-        ZStack {
-            MapReader { mapProxy in
-                Map(position: $viewModel.cameraPosition, interactionModes: .all) {
-                    mapAnnotations
-                }
-                .padding()
-                .onAppear {
-                    setupInitialState(mapProxy: mapProxy)
-                }
-                .onMapCameraChange { context in
-                    viewModel.cachedMapProxy = mapProxy
-                    viewModel.cachedItemsRegion = context.region
-                    scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
-                }
-                .animation(.easeIn, value: viewModel.cameraPosition)
-                .mapStyle(
-                    .hybrid(
-                        elevation: .automatic,
-                        pointsOfInterest: .excludingAll,
-                        showsTraffic: false
+            ZStack {
+                MapReader { mapProxy in
+                    Map(position: $viewModel.cameraPosition, interactionModes: .all) {
+                        mapAnnotations
+                    }
+                    .padding()
+                    .onAppear {
+                        setupInitialState(mapProxy: mapProxy)
+                    }
+                    .onMapCameraChange { context in
+                        viewModel.cachedMapProxy = mapProxy
+                        viewModel.cachedItemsRegion = context.region
+                        scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
+                    }
+                    .animation(.easeIn, value: viewModel.cameraPosition)
+                    .mapStyle(
+                        .hybrid(
+                            elevation: .automatic,
+                            pointsOfInterest: .excludingAll,
+                            showsTraffic: false
+                        )
                     )
-                )
-                .mapControls {
-                    MapScaleView()
-                    MapCompass()
+                    .mapControls {
+                        MapScaleView()
+                        MapCompass()
+                    }
                 }
+                
+                LoadingOverlayView(
+                    isLoading: viewModel.dataSource.isLoading,
+                    selectedFile: viewModel.dataSource.selectedFile
+                )
             }
-            
-            loadingOverlay
+            Divider()
+            ControlsPanelView(
+                viewModel: viewModel,
+                onSpacingChange: {
+                    Task { @MainActor in
+                        viewModel.dataSource.isLoading = true
+                        defer { viewModel.dataSource.isLoading = false }
+                        scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
+                    }
+                },
+                onFileChange: { oldFile, newFile in
+                    handleFileChange(oldFile: oldFile, newFile: newFile)
+                }
+            )
+            .padding()
         }
     }
+    
+    // MARK: - Map Annotations
     
     @MapContentBuilder
     private var mapAnnotations: some MapContent {
@@ -231,7 +84,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
             ForEach(viewModel.clusterManager.clusters) { cluster in
                 if cluster.size == 1, let city = cluster.items.first {
                     Annotation(city.name, coordinate: city.coordinate) {
-                        cityAnnotationView
+                        CityAnnotationView()
                     }
                 } else {
                     Annotation("", coordinate: cluster.center) {
@@ -242,17 +95,18 @@ struct ClusterContentView: View, ClusterManagerProvider {
         } else {
             ForEach(viewModel.visibleItems, id: \.self) { city in
                 Annotation(city.name, coordinate: city.coordinate) {
-                    cityAnnotationView
+                    CityAnnotationView()
                 }
             }
         }
     }
 
-    /// Map Annotation Views
-    private var cityAnnotationView: some View {
-        Circle()
-            .foregroundColor(.red)
-            .frame(width: MapConstants.annotationSize)
+    private struct CityAnnotationView: View {
+        var body: some View {
+            Circle()
+                .foregroundStyle(.red)
+                .frame(width: MapConstants.annotationSize)
+        }
     }
 
     private struct ClusterAnnotationView: View {
@@ -266,79 +120,79 @@ struct ClusterContentView: View, ClusterManagerProvider {
         }
     }
 
-    @ViewBuilder
-    private var loadingOverlay: some View {
-        if viewModel.dataSource.isLoading {
-            Color.black.opacity(MapConstants.loadingOverlayOpacity)
-                .cornerRadius(MapConstants.loadingOverlayCornerRadius)
-                .allowsHitTesting(false)
-            
-            ProgressView {
-                Text("Loading \(viewModel.dataSource.selectedFile)")
-                    .font(.caption)
-                    .foregroundStyle(Color.secondary)
+    private struct LoadingOverlayView: View {
+        let isLoading: Bool
+        let selectedFile: String
+
+        var body: some View {
+            if isLoading {
+                Color.black.opacity(MapConstants.loadingOverlayOpacity)
+                    .clipShape(.rect(cornerRadius: MapConstants.loadingOverlayCornerRadius))
+                    .allowsHitTesting(false)
+                
+                ProgressView {
+                    Text("Loading \(selectedFile)")
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                }
+                .progressViewStyle(.circular)
+                .scaleEffect(MapConstants.loadingScaleFactor)
+                .zIndex(1)
             }
-            .progressViewStyle(.circular)
-            .scaleEffect(MapConstants.loadingScaleFactor)
-            .zIndex(1)
         }
     }
     
-    // MARK: - Controls View
+    // MARK: - Controls Panel
     
-    private var controlsView: some View {
-        HStack(spacing: 24) {
-            StatisticsView(
-                totalCities: viewModel.items.count,
-                useClustering: viewModel.clusteringSettings.enabled,
-                visibleCount: visibleCount,
-                cityCount: cityCount,
-                clusterCount: clusterCount
-            )
-            
-            Spacer()
-            
-            ClusteringControlsView(
-                useClustering: $viewModel.clusteringSettings.enabled,
-                spacing: $viewModel.clusteringSettings.spacing,
-                onlyVisible: viewModel.clusteringSettings.onlyVisible,
-                onSpacingChange: {
-                    Task { @MainActor in
-                        viewModel.dataSource.isLoading = true
-                        scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
-                        viewModel.dataSource.isLoading = false
-                    }
-                }
-            )
-            
-            Divider()
-                .frame(height: 60)
-            
-            DataSourceControlsView(
-                availableFiles: viewModel.dataSource.availableFiles,
-                selectedFile: $viewModel.dataSource.selectedFile,
-                onlyVisible: $viewModel.clusteringSettings.onlyVisible,
-                onFileChange: { oldFile, newFile in
-                    handleFileChange(oldFile: oldFile, newFile: newFile)
-                }
-            )
+    private struct ControlsPanelView: View {
+        @Bindable var viewModel: ClusterMapViewModel
+        let onSpacingChange: () -> Void
+        let onFileChange: (String, String) -> Void
+        
+        private var visibleCount: Int {
+            viewModel.clusteringSettings.enabled
+                ? viewModel.clusterManager.clusters.reduce(0) { $0 + $1.items.count }
+                : viewModel.visibleItems.count
         }
-    }
-    
-    // MARK: - Computed Properties for Statistics
-    
-    private var visibleCount: Int {
-        viewModel.clusteringSettings.enabled 
-            ? viewModel.clusterManager.clusters.reduce(0) { $0 + $1.items.count } 
-            : viewModel.visibleItems.count
-    }
-    
-    private var cityCount: Int {
-        viewModel.clusterManager.clusters.filter { $0.items.count == 1 }.count
-    }
-    
-    private var clusterCount: Int {
-        viewModel.clusterManager.clusters.filter { $0.items.count > 1 }.count
+        
+        private var cityCount: Int {
+            viewModel.clusterManager.clusters.filter { $0.items.count == 1 }.count
+        }
+        
+        private var clusterCount: Int {
+            viewModel.clusterManager.clusters.filter { $0.items.count > 1 }.count
+        }
+        
+        var body: some View {
+            HStack(spacing: 24) {
+                StatisticsView(
+                    totalCities: viewModel.items.count,
+                    useClustering: viewModel.clusteringSettings.enabled,
+                    visibleCount: visibleCount,
+                    cityCount: cityCount,
+                    clusterCount: clusterCount
+                )
+                
+                Spacer()
+                
+                ClusteringControlsView(
+                    useClustering: $viewModel.clusteringSettings.enabled,
+                    spacing: $viewModel.clusteringSettings.spacing,
+                    onlyVisible: viewModel.clusteringSettings.onlyVisible,
+                    onSpacingChange: onSpacingChange
+                )
+                
+                Divider()
+                    .frame(height: 60)
+                
+                DataSourceControlsView(
+                    availableFiles: viewModel.dataSource.availableFiles,
+                    selectedFile: $viewModel.dataSource.selectedFile,
+                    onlyVisible: $viewModel.clusteringSettings.onlyVisible,
+                    onFileChange: onFileChange
+                )
+            }
+        }
     }
     
     // MARK: - Setup and Handlers
@@ -387,11 +241,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
         
         Task { @MainActor in
             viewModel.dataSource.isLoading = true
+            defer { viewModel.dataSource.isLoading = false }
+            
             viewModel.items = [] // clear all markers from the map
             
             if viewModel.clusteringSettings.enabled {
                 if let proxy = viewModel.cachedMapProxy {
-                    _ = await viewModel.clusterManager.update(
+                    await viewModel.clusterManager.update(
                         [],
                         mapProxy: proxy,
                         spacing: Int(viewModel.clusteringSettings.spacing)
@@ -401,7 +257,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
             
             viewModel.items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
             viewModel.cameraPosition = .region(itemsMapRegion)
-            viewModel.dataSource.isLoading = false
         }
     }
 
@@ -410,21 +265,9 @@ struct ClusterContentView: View, ClusterManagerProvider {
     /// Computes a map region that encompasses all loaded city items.
     ///
     /// - Returns: A region that fits all items, or the default region if items is empty
-    var itemsMapRegion: MKCoordinateRegion {
+    private var itemsMapRegion: MKCoordinateRegion {
         let coordinateArray = viewModel.items.map { $0.coordinate }
         return coordinateArray.boundingRegion() ?? viewModel.defaultRegion
-    }
-
-    // MARK: - Region Filtering
-    
-    /// Filters items to only those within the specified region using the MapRegionHelper.
-    ///
-    /// - Parameters:
-    ///   - items: The array of cities to filter
-    ///   - region: The map region to filter within
-    /// - Returns: Array of cities that fall within the specified region
-    private func filterItemsInRegion(_ items: [City], region: MKCoordinateRegion) -> [City] {
-        MapRegionHelper.filterItems(items, in: region)
     }
 
     // MARK: - Update Scheduling
@@ -460,28 +303,16 @@ struct ClusterContentView: View, ClusterManagerProvider {
 
         Task {
             await updateCoordinator.scheduleUpdate(delay: delayMilliseconds) {
-                let overallStart = DispatchTime.now()
-
                 if withVisibleOnly {
-                    // determine region to use (safe fallback to computed region)
-                    let regionToUse: MKCoordinateRegion
-                    if let cachedRegion = regionSnapshot {
-                        regionToUse = cachedRegion
-                    } else {
-                        // compute from items
-                        let coordinateArray = itemsSnapshot.map { $0.coordinate }
-                        regionToUse = await coordinateArray.boundingRegion() ?? defaultRegionSnapshot
-                    }
-
-                    let sourceItems = await MainActor.run {
-                        self.filterItemsInRegion(itemsSnapshot, region: regionToUse)
-                    }
-                    
-                    let overallEnd = DispatchTime.now()
+                    let regionToUse = await MapRegionHelper.resolveRegion(
+                        cached: regionSnapshot,
+                        items: itemsSnapshot,
+                        fallback: defaultRegionSnapshot
+                    )
+                    let sourceItems = MapRegionHelper.filterItems(itemsSnapshot, in: regionToUse)
 
                     await MainActor.run {
                         self.viewModel.visibleItems = sourceItems
-                        self.viewModel.metrics.lastUpdateDuration = Double(overallEnd.uptimeNanoseconds - overallStart.uptimeNanoseconds) / 1e9
                     }
                 } else {
                     await MainActor.run {
@@ -512,19 +343,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 // compute source items (visible-only or all)
                 let sourceItems: [City]
                 if withVisibleOnlySnapshot {
-                    // determine region to use (safe fallback to computed region)
-                    let regionToUse: MKCoordinateRegion
-                    if let cachedRegion = regionSnapshot {
-                        regionToUse = cachedRegion
-                    } else {
-                        // compute from items
-                        let coordinateArray = itemsSnapshot.map { $0.coordinate }
-                        regionToUse = await coordinateArray.boundingRegion() ?? defaultRegionSnapshot
-                    }
+                    let regionToUse = await MapRegionHelper.resolveRegion(
+                        cached: regionSnapshot,
+                        items: itemsSnapshot,
+                        fallback: defaultRegionSnapshot
+                    )
+                    sourceItems = MapRegionHelper.filterItems(itemsSnapshot, in: regionToUse)
 
-                    sourceItems = await MainActor.run {
-                        self.filterItemsInRegion(itemsSnapshot, region: regionToUse)
-                    }
                 } else {
                     sourceItems = itemsSnapshot
                 }
@@ -540,122 +365,6 @@ struct ClusterContentView: View, ClusterManagerProvider {
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-// MARK: - Helper Views
-
-/// Displays statistics about total cities, visible items, and clustering breakdown.
-private struct StatisticsView: View {
-    let totalCities: Int
-    let useClustering: Bool
-    let visibleCount: Int
-    let cityCount: Int
-    let clusterCount: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            statisticRow(label: "Total Cities", value: "\(totalCities)")
-            statisticRow(label: "Visible", value: "\(visibleCount)")
-            
-            if useClustering {
-                HStack(spacing: 12) {
-                    statisticRow(label: "Cities", value: "\(cityCount)")
-                    statisticRow(label: "Clusters", value: "\(clusterCount)")
-                }
-                .padding(.leading, 8)
-            }
-        }
-        .font(.system(.body, design: .rounded))
-    }
-    
-    private func statisticRow(label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label + ":")
-                .foregroundStyle(.secondary)
-            Text(value)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-        }
-    }
-}
-
-/// Controls for enabling clustering and adjusting clustering parameters.
-private struct ClusteringControlsView: View {
-    @Binding var useClustering: Bool
-    @Binding var spacing: Double
-    let onlyVisible: Bool
-    let onSpacingChange: () -> Void
-    
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 12) {
-            controlRow(label: "Clustering", toggle: $useClustering)
-            
-            if useClustering {
-                VStack(alignment: .trailing, spacing: 8) {
-
-                    HStack(spacing: 8) {
-                        Text("Spacing")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("\(Int(spacing))")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .monospacedDigit()
-                            .foregroundStyle(.primary)
-                            .frame(width: 30, alignment: .trailing)
-                        Slider(value: $spacing, in: MapConstants.spacingRange, step: MapConstants.spacingStep)
-                            .frame(width: MapConstants.sliderWidth)
-                            .onChange(of: spacing) { oldValue, newValue in
-                                guard oldValue != newValue else { return }
-                                onSpacingChange()
-                            }
-                    }
-                }
-            }
-        }
-    }
-    
-    private func controlRow(label: String, toggle: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-            Toggle("", isOn: toggle)
-                .labelsHidden()
-        }
-    }
-}
-
-/// Controls for selecting data source files and visibility filtering options.
-private struct DataSourceControlsView: View {
-    let availableFiles: [String]
-    @Binding var selectedFile: String
-    @Binding var onlyVisible: Bool
-    let onFileChange: (String, String) -> Void
-    
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 12) {
-            VStack(alignment: .trailing, spacing: 6) {
-                Text("Data Source")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
-                Picker("", selection: $selectedFile) {
-                    ForEach(availableFiles, id: \.self) {
-                        Text($0).tag($0)
-                    }
-                }
-                .pickerStyle(.menu)
-                .onChange(of: selectedFile) { oldFile, newFile in
-                    onFileChange(oldFile, newFile)
-                }
-            }
-            
-            HStack(spacing: 8) {
-                Text("Visible Only")
-                Toggle("", isOn: $onlyVisible)
-                    .labelsHidden()
             }
         }
     }

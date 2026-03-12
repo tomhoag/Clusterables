@@ -1,6 +1,6 @@
 //
 //  City.swift
-//  Clusterables
+//  Example
 //
 //  Created by Tom Hoag on 1/25/26.
 //
@@ -78,5 +78,3 @@ public struct City: Clusterable, Equatable, Hashable, Sendable, Codable {
         try coordinateContainer.encode(coordinate.longitude, forKey: .longitude)
     }
 }
-
-// MARK: - City collection helpers
