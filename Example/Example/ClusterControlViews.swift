@@ -39,6 +39,7 @@ struct StatisticsView: View {
                 .fontWeight(.medium)
                 .foregroundStyle(.primary)
         }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -51,8 +52,10 @@ struct ClusteringControlsView: View {
     
     var body: some View {
         VStack(alignment: .trailing, spacing: 12) {
-            controlRow(label: "Clustering", toggle: $useClustering)
-            
+
+            Toggle("Clustering", isOn: $useClustering)
+                .fixedSize()
+
             if useClustering {
                 VStack(alignment: .trailing, spacing: 8) {
 
@@ -75,14 +78,6 @@ struct ClusteringControlsView: View {
                     }
                 }
             }
-        }
-    }
-    
-    private func controlRow(label: String, toggle: Binding<Bool>) -> some View {
-        HStack(spacing: 8) {
-            Text(label)
-            Toggle("", isOn: toggle)
-                .labelsHidden()
         }
     }
 }
@@ -112,11 +107,45 @@ struct DataSourceControlsView: View {
                 }
             }
             
-            HStack(spacing: 8) {
-                Text("Visible Only")
-                Toggle("", isOn: $onlyVisible)
-                    .labelsHidden()
-            }
+            Toggle("Visible Only", isOn: $onlyVisible)
+                .fixedSize()
         }
     }
+}
+
+#Preview("Statistics") {
+    StatisticsView(
+        totalCities: 1813,
+        useClustering: true,
+        visibleCount: 342,
+        cityCount: 280,
+        clusterCount: 15
+    )
+    .padding()
+}
+
+#Preview("Clustering Controls") {
+    @Previewable @State var useClustering = true
+    @Previewable @State var spacing = 30.0
+
+    ClusteringControlsView(
+        useClustering: $useClustering,
+        spacing: $spacing,
+        onlyVisible: true,
+        onSpacingChange: {}
+    )
+    .padding()
+}
+
+#Preview("Data Source Controls") {
+    @Previewable @State var selectedFile = "USCities1813"
+    @Previewable @State var onlyVisible = true
+
+    DataSourceControlsView(
+        availableFiles: ["USCities938", "USCities1813", "USCities6463"],
+        selectedFile: $selectedFile,
+        onlyVisible: $onlyVisible,
+        onFileChange: { _, _ in }
+    )
+    .padding()
 }

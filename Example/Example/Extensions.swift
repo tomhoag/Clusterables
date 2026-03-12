@@ -7,10 +7,12 @@
 
 import MapKit
 import CoreLocation
+import os
 
 // Add a small Bundle helper to decode JSON files from the bundle into Decodable types.
 extension Bundle {
 
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Example", category: "BundleDecode")
     private static var _decodeCache = [String: Any]()
 
     func decodeCached<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
@@ -54,7 +56,7 @@ extension Bundle {
         }
 
         guard let fileURL = url else {
-            print("Bundle.decode: resource not found: \(resource) (resolved name: \(resourceName) subdirectory: \(subdirectory ?? "nil"))")
+            Self.logger.warning("Resource not found: \(resource) (resolved name: \(resourceName) subdirectory: \(subdirectory ?? "nil"))")
             return nil
         }
 
@@ -63,7 +65,7 @@ extension Bundle {
             let decoder = JSONDecoder()
             return try decoder.decode(T.self, from: data)
         } catch {
-            print("Bundle.decode(\(resource)) failed: \(error)")
+            Self.logger.error("Decode failed for \(resource): \(error)")
             return nil
         }
     }
