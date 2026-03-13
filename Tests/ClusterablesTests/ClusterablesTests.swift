@@ -170,10 +170,28 @@ struct ClusterManagerTests {
         #expect(manager.clusters.isEmpty, "New manager should have no clusters")
     }
     
-    // Note: ClusterManager tests that require MapProxy are excluded because
-    // MapProxy is a concrete SwiftUI type that cannot be mocked without a real Map view.
-    // These tests would require UI testing or integration testing with an actual Map.
-    // Instead, we focus on testing the Cluster struct and DBSCAN algorithm directly.
+    @Test("ClusterManager update clusters items by epsilon")
+    func updateClusters() async {
+        let manager = ClusterManager<TestPin>()
+        let pins = [
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.001, longitude: 0.001), name: "B"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 10.0, longitude: 10.0), name: "C")
+        ]
+        
+        await manager.update(pins, epsilon: 0.01)
+        
+        #expect(manager.clusters.count == 2, "Should find two clusters")
+    }
+    
+    @Test("ClusterManager update with empty items produces empty clusters")
+    func updateEmpty() async {
+        let manager = ClusterManager<TestPin>()
+        
+        await manager.update([], epsilon: 1.0)
+        
+        #expect(manager.clusters.isEmpty, "Empty items should produce no clusters")
+    }
 }
 
 // MARK: - Integration Tests
@@ -201,8 +219,6 @@ struct IntegrationTests {
         #expect(abs(cluster.center.longitude - avgLon) < epsilon, "Longitude should match manual calculation")
     }
     
-    // Note: Tests requiring MapProxy have been removed because MapProxy is a concrete
-    // SwiftUI type that cannot be mocked. These would require UI testing with an actual Map view.
 }
 
 // MARK: - Edge Cases
@@ -267,7 +283,5 @@ struct EdgeCaseTests {
     }
 }
 
-// Note: Mock MapProxy objects removed because MapProxy is a concrete SwiftUI struct,
-// not a protocol. Testing ClusterManager.update() requires actual MapKit integration
-// or UI testing with a real Map view. Unit tests focus on Cluster struct and DBSCAN algorithm.
+
 

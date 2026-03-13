@@ -246,12 +246,9 @@ struct ClusterContentView: View, ClusterManagerProvider {
             viewModel.items = [] // clear all markers from the map
             
             if viewModel.clusteringSettings.enabled {
-                if let proxy = viewModel.cachedMapProxy {
-                    await viewModel.clusterManager.update(
-                        [],
-                        mapProxy: proxy,
-                        spacing: Int(viewModel.clusteringSettings.spacing)
-                    )
+                if let proxy = viewModel.cachedMapProxy,
+                   let epsilon = proxy.degrees(fromPixels: Int(viewModel.clusteringSettings.spacing)) {
+                    await viewModel.clusterManager.update([], epsilon: epsilon)
                 }
             }
             
@@ -355,13 +352,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 }
 
                 await MainActor.run {
-                    guard let proxy = self.viewModel.cachedMapProxy else { return }
+                    guard let proxy = self.viewModel.cachedMapProxy,
+                          let epsilon = proxy.degrees(fromPixels: spacingSnapshot) else { return }
 
                     Task { @MainActor in
                         await self.viewModel.clusterManager.update(
                             sourceItems,
-                            mapProxy: proxy,
-                            spacing: spacingSnapshot
+                            epsilon: epsilon
                         )
                     }
                 }

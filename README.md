@@ -61,7 +61,7 @@ struct ContentView: View, ClusterManagerProvider {
 
 ### Step 3 — Wrap your `Map` in a `MapReader`
 
-`MapReader` gives you a `mapProxy`, which is required by `ClusterManager` to calculate screen-space distances for clustering:
+`MapReader` gives you a `mapProxy`, which you can use to convert screen-space pixel spacing to geographic degrees for clustering:
 
 ```swift
 MapReader { mapProxy in
@@ -97,18 +97,22 @@ Map(position: $cameraPosition, interactionModes: .all) {
 
 ### Step 5 — Trigger cluster updates
 
-Call `clusterManager.update` whenever the map appears, the camera position changes or whenever you want to update the clusters. Note that `spacing` is used to determine how "tightly" map items should be clustered.  A small spacing value will yeild fewer clusters.
+Call `clusterManager.update` whenever the map appears, the camera position changes or whenever you want to update the clusters. The `epsilon` parameter is the clustering distance in degrees — items closer than this are grouped together. Use `MapProxy.degrees(fromPixels:)` to convert a screen-space pixel spacing to degrees at the current zoom level.
 
 ```swift
 .onAppear {
     Task { @MainActor in
         cameraPosition = .region(mapRegion)
-        await clusterManager.update(items, mapProxy: mapProxy, spacing: spacing)
+        if let epsilon = mapProxy.degrees(fromPixels: spacing) {
+            await clusterManager.update(items, epsilon: epsilon)
+        }
     }
 }
 .onMapCameraChange(frequency: .onEnd) { _ in
     Task { @MainActor in
-        await clusterManager.update(items, mapProxy: mapProxy, spacing: spacing)
+        if let epsilon = mapProxy.degrees(fromPixels: spacing) {
+            await clusterManager.update(items, epsilon: epsilon)
+        }
     }
 }
 ```

@@ -170,7 +170,9 @@ extension Cluster: Hashable {
 ///             }
 ///         }
 ///         .onMapCameraChange { context in
-///             await manager.update(pins, mapProxy: context.proxy, spacing: 50)
+///             if let epsilon = mapProxy.degrees(fromPixels: 50) {
+///                 await manager.update(pins, epsilon: epsilon)
+///             }
 ///         }
 ///     }
 /// }
@@ -182,7 +184,7 @@ extension Cluster: Hashable {
 /// - ``init()``
 ///
 /// ### Managing Clusters
-/// - ``update(_:mapProxy:spacing:)``
+/// - ``update(_:epsilon:)``
 /// - ``clusters``
 ///
 /// ### Performance
@@ -210,14 +212,14 @@ public class ClusterManager<CR: Clusterable> {
     /// The current set of clusters generated from the most recent update.
     ///
     /// This property is observed by SwiftUI, triggering view updates when clusters change.
-    /// Initially empty until ``update(_:mapProxy:spacing:)`` is called.
+    /// Initially empty until ``update(_:epsilon:)`` is called.
     public private(set) var clusters: [Cluster<CR>]
 
     // MARK: - Initialization
     
     /// Creates a new cluster manager with an empty set of clusters.
     ///
-    /// After initialization, call ``update(_:mapProxy:spacing:)`` to generate clusters
+    /// After initialization, call ``update(_:epsilon:)`` to generate clusters
     /// from your data.
     public init() {
         clusters = []
@@ -225,38 +227,43 @@ public class ClusterManager<CR: Clusterable> {
 
     // MARK: - Public Methods
     
-    /// Updates the clusters based on the current map view state and desired cluster spacing.
+    /// Updates the clusters based on the desired clustering distance.
     ///
     /// This method analyzes the provided items and groups them into clusters based on their
-    /// visual proximity in the current map view. Items closer than `spacing` screen points
-    /// are grouped together.
+    /// geographic proximity. Items closer than `epsilon` degrees are grouped together.
     ///
     /// The clustering operation runs asynchronously on a background thread and updates
     /// the ``clusters`` property on the main actor when complete.
     ///
     /// - Parameters:
     ///   - items: The items to cluster. Each item must conform to ``Clusterable``.
-    ///   - mapProxy: The map proxy from SwiftUI's `Map` view, used to convert between
-    ///     screen coordinates and geographic coordinates.
-    ///   - spacing: The minimum spacing between clusters in screen points (pixels).
-    ///     Items closer than this distance will be grouped into the same cluster.
+    ///   - epsilon: The maximum distance in degrees between two points for them to be
+    ///     considered neighbors. Use ``MapProxy/degrees(fromPixels:)`` to convert
+    ///     screen-space pixel spacing to degrees at the current zoom level.
     ///
     /// - Note: This method should typically be called in response to map camera changes
     ///   using SwiftUI's `.onMapCameraChange` modifier.
     ///
     /// ## Example
     /// ```swift
-    /// Map {
-    ///     // Map content
-    /// }
-    /// .onMapCameraChange { context in
-    ///     await clusterManager.update(pins, mapProxy: context.proxy, spacing: 50)
+    /// MapReader { mapProxy in
+    ///     Map {
+    ///         // Map content
+    ///     }
+    ///     .onMapCameraChange { context in
+    ///         if let epsilon = mapProxy.degrees(fromPixels: 50) {
+    ///             await clusterManager.update(pins, epsilon: epsilon)
+    ///         }
+    ///     }
     /// }
     /// ```
+    public func update(_ items: [CR], epsilon: Double) async {
+        let newClusters = await Self.makeClusters(items, epsilon: epsilon)
+        await setClusters(newClusters)
+    }
+    
     @MainActor
-    public func update(_ items: [CR], mapProxy: MapProxy, spacing: Int) async {
-        guard let distance = mapProxy.degrees(fromPixels: spacing) else { return }
-        let newClusters = await Self.makeClusters(items, epsilon: distance)
+    private func setClusters(_ newClusters: [Cluster<CR>]) {
         clusters = newClusters
     }
 
