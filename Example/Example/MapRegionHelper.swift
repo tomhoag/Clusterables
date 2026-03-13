@@ -10,6 +10,7 @@ import MapKit
 
 /// Utility for map region calculations and coordinate filtering.
 enum MapRegionHelper {
+    
     /// Normalizes longitude to the standard [-180, 180] range.
     ///
     /// - Parameter longitude: The longitude value to normalize
@@ -21,17 +22,7 @@ enum MapRegionHelper {
         return lon
     }
     
-    /// Filters items to only those within the specified region, handling antimeridian crossing.
-    ///
-    /// This method properly handles regions that cross the International Date Line (antimeridian)
-    /// by detecting when the minimum longitude is greater than the maximum longitude.
-    ///
-    /// - Parameters:
-    ///   - items: The array of items to filter
-    ///   - region: The map region to filter within
-    /// - Returns: Array of items that fall within the specified region
-    /// Resolves the region to use for filtering, preferring a cached region
-    /// and falling back to computing a bounding region from items.
+
     ///
     /// - Parameters:
     ///   - cached: A previously cached map region, if available
@@ -46,9 +37,20 @@ enum MapRegionHelper {
         if let cached {
             return cached
         }
-        return items.map { $0.coordinate }.boundingRegion() ?? fallback
+        return await items.map { $0.coordinate }.boundingRegion() ?? fallback
     }
-    
+
+    /// Filters items to only those within the specified region, handling antimeridian crossing.
+    ///
+    /// This method properly handles regions that cross the International Date Line (antimeridian)
+    /// by detecting when the minimum longitude is greater than the maximum longitude.
+    ///
+    /// - Parameters:
+    ///   - items: The array of items to filter
+    ///   - region: The map region to filter within
+    /// - Returns: Array of items that fall within the specified region
+    /// Resolves the region to use for filtering, preferring a cached region
+    /// and falling back to computing a bounding region from items.
     nonisolated static func filterItems<T: Clusterable>(_ items: [T], in region: MKCoordinateRegion) -> [T] {
         let centerLon = normalizeLongitude(region.center.longitude)
         let lonDelta = region.span.longitudeDelta
