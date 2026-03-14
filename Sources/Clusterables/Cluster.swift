@@ -317,6 +317,20 @@ public class ClusterManager<CR: Clusterable> {
 
     // MARK: - Private Methods
     
+    /// Quantizes a latitude/longitude pair into a ``PointKey`` for dictionary lookup.
+    ///
+    /// This is extracted into a single function because the same quantization must be
+    /// applied in both ``preprocessItems(_:)`` (when building the coordinate-to-index map)
+    /// and ``remapPointsToIndices(_:coordIndexMap:)`` (when looking up indices after DBSCAN).
+    /// Duplicating the arithmetic in two places risks a silent mismatch if one is changed
+    /// without the other, causing lookups to return nil and clusters to come out empty.
+    private static func pointKey(latitude: Double, longitude: Double) -> PointKey {
+        PointKey(
+            latKey: Int64((latitude * coordinatePrecision).rounded()),
+            lonKey: Int64((longitude * coordinatePrecision).rounded())
+        )
+    }
+    
     /// Converts clusterable items into SIMD points and builds a reverse lookup map.
     ///
     /// This preprocessing step quantizes coordinates for efficient hashing and creates
@@ -337,9 +351,7 @@ public class ClusterManager<CR: Clusterable> {
             let lon = item.coordinate.longitude
             points.append(Point(lat, lon))
             
-            let latKey = Int64((lat * coordinatePrecision).rounded())
-            let lonKey = Int64((lon * coordinatePrecision).rounded())
-            let key = PointKey(latKey: latKey, lonKey: lonKey)
+            let key = pointKey(latitude: lat, longitude: lon)
             coordIndexMap[key, default: []].append(i)
         }
         
@@ -368,11 +380,8 @@ public class ClusterManager<CR: Clusterable> {
             clusterIndices.reserveCapacity(raw.count)
             
             for pt in raw {
-                // Note: SIMD2 stores (lat, lon) as (x, y)
-                let latKey = Int64((pt.x * coordinatePrecision).rounded())
-                let lonKey = Int64((pt.y * coordinatePrecision).rounded())
-                let key = PointKey(latKey: latKey, lonKey: lonKey)
-                
+                // SIMD2 stores (lat, lon) as (x, y)
+                let key = pointKey(latitude: pt.x, longitude: pt.y)
                 if let indices = coordIndexMap[key] {
                     clusterIndices.append(contentsOf: indices)
                 }
