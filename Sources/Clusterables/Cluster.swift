@@ -12,10 +12,6 @@ import simd
 /// struct City: Clusterable {
 ///     let coordinate: CLLocationCoordinate2D
 ///     let name: String
-///
-///     static func == (lhs: City, rhs: City) -> Bool {
-///         lhs.name == rhs.name
-///     }
 /// }
 /// ```
 ///
