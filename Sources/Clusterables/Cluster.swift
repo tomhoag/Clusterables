@@ -1,8 +1,5 @@
-import KDTree
 import MapKit
 import os
-
-import SwiftUI
 import simd
 
 /// A type that can be clustered on a map based on its geographic location.
