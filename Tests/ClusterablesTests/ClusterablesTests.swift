@@ -259,6 +259,64 @@ struct IntegrationTests {
 
 // MARK: - Edge Cases
 
+// These tests verify that the internal generation counter used to discard stale
+// update results does not interfere with normal ClusterManager behavior. The actual
+// staleness-discard path (where a newer update causes an in-flight update to bail out)
+// cannot be reliably exercised in a unit test because DBSCAN completes too quickly on
+// small datasets to create a timing window. The generation counter logic is verified
+// structurally by code review.
+
+@Suite("Generation Counter Regression Tests")
+@MainActor
+struct GenerationCounterTests {
+    
+    /// Verifies that a single update still produces correct results after adding
+    /// the generation counter to the update path. Guards against the counter
+    /// machinery accidentally short-circuiting a valid, non-stale update.
+    @Test("Single update produces correct results with generation counter in place")
+    func singleUpdate() async {
+        let manager = ClusterManager<TestPin>()
+        let pins = [
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.001, longitude: 0.001), name: "B"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 10.0, longitude: 10.0), name: "C")
+        ]
+        
+        await manager.update(pins, epsilon: 0.01)
+        
+        #expect(manager.clusters.count == 2, "Should produce two clusters")
+        #expect(manager.outliers.isEmpty, "No outliers with default minimumPoints")
+    }
+    
+    /// Verifies that two sequential (non-overlapping) updates each produce
+    /// correct results. The generation counter increments on each call; this
+    /// confirms that a higher generation value doesn't prevent a subsequent
+    /// update from completing and applying its results.
+    @Test("Sequential updates each apply their results correctly")
+    func sequentialUpdates() async {
+        let manager = ClusterManager<TestPin>()
+        
+        // First update: two clusters
+        let pins1 = [
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 10.0, longitude: 10.0), name: "B")
+        ]
+        await manager.update(pins1, epsilon: 0.01)
+        #expect(manager.clusters.count == 2, "First update should produce two clusters")
+        
+        // Second update: three clusters — confirms generation counter advances correctly
+        let pins2 = [
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "X"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 10.0, longitude: 10.0), name: "Y"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 20.0, longitude: 20.0), name: "Z")
+        ]
+        await manager.update(pins2, epsilon: 0.01)
+        #expect(manager.clusters.count == 3, "Second update should produce three clusters")
+    }
+}
+
+// MARK: - Edge Cases
+
 @Suite("Edge Case Tests")
 struct EdgeCaseTests {
     

@@ -1,6 +1,7 @@
 import KDTree
 import MapKit
 import os
+
 import SwiftUI
 import simd
 
@@ -181,6 +182,12 @@ public class ClusterManager<CR: Clusterable> {
     /// Maps quantized coordinates to the original item indices
     private typealias CoordinateIndexMap = [PointKey: [Int]]
     
+    // MARK: - Private Properties
+
+    private static var logger: Logger {
+        Logger(subsystem: "Clusterables", category: "ClusterManager")
+    }
+    
     // MARK: - Public Properties
     
     /// The current set of clusters generated from the most recent update.
@@ -238,6 +245,10 @@ public class ClusterManager<CR: Clusterable> {
     /// - Note: This method should typically be called in response to map camera changes
     ///   using SwiftUI's `.onMapCameraChange` modifier.
     ///
+    /// Calling this method while a previous update is still in progress
+    /// discards the earlier results. Only the most recent update's results
+    /// are applied.
+    ///
     /// ## Example
     /// ```swift
     /// MapReader { mapProxy in
@@ -252,7 +263,21 @@ public class ClusterManager<CR: Clusterable> {
     /// }
     /// ```
     public func update(_ items: [CR], epsilon: Double, minimumPoints: Int = 1) async {
-        let (newClusters, newOutliers) = await Self.makeClusters(items, epsilon: epsilon, minimumPoints: minimumPoints)
+        let generation = _generation.withLock { value -> Int in
+            value += 1
+            return value
+        }
+
+        let (newClusters, newOutliers) = await Self.makeClusters(
+            items, epsilon: epsilon, minimumPoints: minimumPoints,
+            generation: generation, currentGeneration: _generation
+        )
+
+        // Only apply results if no newer update has started
+        guard _generation.withLock({ $0 }) == generation else {
+            Self.logger.debug("update generation \(generation) discarded: a newer update is in progress")
+            return
+        }
         await setResults(newClusters, newOutliers)
     }
     
@@ -273,6 +298,9 @@ public class ClusterManager<CR: Clusterable> {
     
     /// The precision used for coordinate hashing (6 decimal places ≈ 0.1 meter accuracy)
     private static var coordinatePrecision: Double { 1_000_000.0 }
+    
+    /// Incremented on each ``update(_:epsilon:minimumPoints:)`` call to detect and discard stale results.
+    private let _generation = OSAllocatedUnfairLock(initialState: 0)
 
     // MARK: - Private Methods
     
@@ -358,12 +386,20 @@ public class ClusterManager<CR: Clusterable> {
     ///   - epsilon: The maximum distance (in degrees) between two items for them to be
     ///     considered part of the same cluster.
     ///   - minimumPoints: The minimum number of neighbors required for a core point.
-    /// - Returns: A tuple of ``Cluster`` objects and outlier items.
+    ///   - generation: The generation number for this update call, used to detect staleness.
+    ///   - currentGeneration: Lock holding the current generation counter, passed through
+    ///     to ``DBSCANClusterer`` so DBSCAN can bail out mid-computation when a newer
+    ///     update has started.
+    /// - Returns: A tuple of ``Cluster`` objects and outlier items. Returns empty arrays
+    ///   if a newer update started before this one completed.
     ///
     /// - Complexity:
     ///   - Time: O(n log n) with KD-tree spatial indexing
     ///   - Space: O(n) for storing points, indices, and clusters
-    private static func makeClusters(_ items: [CR], epsilon: Double, minimumPoints: Int) async -> (clusters: [Cluster<CR>], outliers: [CR]) {
+    private static func makeClusters(
+        _ items: [CR], epsilon: Double, minimumPoints: Int,
+        generation: Int, currentGeneration: OSAllocatedUnfairLock<Int>
+    ) async -> (clusters: [Cluster<CR>], outliers: [CR]) {
 
         guard !items.isEmpty else {
             return ([], [])
@@ -372,17 +408,25 @@ public class ClusterManager<CR: Clusterable> {
         // Step 1: Preprocess items into SIMD points and build coordinate mapping
         let (points, coordIndexMap) = preprocessItems(items)
 
+        // Bail out if a newer update has started before entering detached task
+        guard currentGeneration.withLock({ $0 }) == generation else {
+            logger.debug("makeClusters generation \(generation) cancelled before DBSCAN")
+            return ([], [])
+        }
+
         // Step 2: Run DBSCAN clustering in a detached task
-        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) = await Task.detached { [points, coordIndexMap, epsilon, minimumPoints] () -> ([IndexCluster], IndexCluster) in
+        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) = await Task.detached { [points, coordIndexMap, epsilon, minimumPoints, currentGeneration] () -> ([IndexCluster], IndexCluster) in
 
             let clusterer = DBSCANClusterer(values: points)
             let rawClusters: [[SIMD2<Double>]]
             let rawOutliers: [SIMD2<Double>]
             do {
-                (rawClusters, rawOutliers) = try clusterer.cluster(epsilon: epsilon, minimumPoints: minimumPoints)
+                (rawClusters, rawOutliers) = try clusterer.cluster(
+                    epsilon: epsilon, minimumPoints: minimumPoints,
+                    generation: generation, currentGeneration: currentGeneration
+                )
             } catch {
-                Logger(subsystem: "Clusterables", category: "ClusterManager")
-                    .error("cluster threw unexpectedly: \(error)")
+                logger.error("cluster threw unexpectedly: \(error)")
                 return ([], [])
             }
             
@@ -391,6 +435,12 @@ public class ClusterManager<CR: Clusterable> {
             let outlierIndices = remapPointsToIndices([rawOutliers], coordIndexMap: coordIndexMap).flatMap { $0 }
             return (clusterIndices, outlierIndices)
         }.value
+
+        // Bail out before constructing Cluster objects
+        guard currentGeneration.withLock({ $0 }) == generation else {
+            logger.debug("makeClusters generation \(generation) cancelled after DBSCAN")
+            return ([], [])
+        }
 
         // Step 4: Convert index clusters to Cluster<CR> objects
         let clusters = rawIndexClusters.compactMap { indices -> Cluster<CR>? in
