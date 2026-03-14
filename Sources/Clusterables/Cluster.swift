@@ -129,12 +129,11 @@ public struct Cluster<CR: Clusterable>: Identifiable, Sendable {
 
 extension Cluster: Hashable {
     public static func == (lhs: Cluster, rhs: Cluster) -> Bool {
-        lhs.center == rhs.center && lhs.size == rhs.size
+        lhs.id == rhs.id
     }
 
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(center)
-        hasher.combine(size)
+        hasher.combine(id)
     }
 }
 
@@ -184,8 +183,9 @@ extension Cluster: Hashable {
 /// - ``init()``
 ///
 /// ### Managing Clusters
-/// - ``update(_:epsilon:)``
+/// - ``update(_:epsilon:minimumPoints:)``
 /// - ``clusters``
+/// - ``outliers``
 ///
 /// ### Performance
 /// - Clustering complexity: O(n log n) with KD-tree spatial indexing
@@ -212,34 +212,54 @@ public class ClusterManager<CR: Clusterable> {
     /// The current set of clusters generated from the most recent update.
     ///
     /// This property is observed by SwiftUI, triggering view updates when clusters change.
-    /// Initially empty until ``update(_:epsilon:)`` is called.
+    /// Initially empty until ``update(_:epsilon:minimumPoints:)`` is called.
+    ///
+    /// Items that don't meet the density threshold are excluded from clusters
+    /// and placed in ``outliers`` instead.
     public private(set) var clusters: [Cluster<CR>]
+    
+    /// Items that were not assigned to any cluster in the most recent update.
+    ///
+    /// Outliers are points that don't have enough neighbors within ``update(_:epsilon:minimumPoints:)``'s
+    /// `epsilon` distance to meet the `minimumPoints` threshold. With the default
+    /// `minimumPoints` of `1`, this array is always empty since every point forms
+    /// at least a single-item cluster.
+    ///
+    /// Use outliers to render unclustered items differently on the map, or to identify
+    /// isolated data points.
+    public private(set) var outliers: [CR]
 
     // MARK: - Initialization
     
     /// Creates a new cluster manager with an empty set of clusters.
     ///
-    /// After initialization, call ``update(_:epsilon:)`` to generate clusters
+    /// After initialization, call ``update(_:epsilon:minimumPoints:)`` to generate clusters
     /// from your data.
     public init() {
         clusters = []
+        outliers = []
     }
 
     // MARK: - Public Methods
     
-    /// Updates the clusters based on the desired clustering distance.
+    /// Updates the clusters based on the desired clustering distance and density threshold.
     ///
     /// This method analyzes the provided items and groups them into clusters based on their
-    /// geographic proximity. Items closer than `epsilon` degrees are grouped together.
+    /// geographic proximity. Items closer than `epsilon` degrees are grouped together,
+    /// provided they meet the `minimumPoints` density threshold. Items that don't meet
+    /// the threshold are placed in ``outliers``.
     ///
     /// The clustering operation runs asynchronously on a background thread and updates
-    /// the ``clusters`` property on the main actor when complete.
+    /// the ``clusters`` and ``outliers`` properties on the main actor when complete.
     ///
     /// - Parameters:
     ///   - items: The items to cluster. Each item must conform to ``Clusterable``.
     ///   - epsilon: The maximum distance in degrees between two points for them to be
     ///     considered neighbors. Use ``MapProxy/degrees(fromPixels:)`` to convert
     ///     screen-space pixel spacing to degrees at the current zoom level.
+    ///   - minimumPoints: The minimum number of neighbors required for a point to be
+    ///     considered a core point. Points with fewer neighbors become outliers.
+    ///     Defaults to `1`, meaning every point belongs to a cluster.
     ///
     /// - Note: This method should typically be called in response to map camera changes
     ///   using SwiftUI's `.onMapCameraChange` modifier.
@@ -257,14 +277,15 @@ public class ClusterManager<CR: Clusterable> {
     ///     }
     /// }
     /// ```
-    public func update(_ items: [CR], epsilon: Double) async {
-        let newClusters = await Self.makeClusters(items, epsilon: epsilon)
-        await setClusters(newClusters)
+    public func update(_ items: [CR], epsilon: Double, minimumPoints: Int = 1) async {
+        let (newClusters, newOutliers) = await Self.makeClusters(items, epsilon: epsilon, minimumPoints: minimumPoints)
+        await setResults(newClusters, newOutliers)
     }
     
     @MainActor
-    private func setClusters(_ newClusters: [Cluster<CR>]) {
+    private func setResults(_ newClusters: [Cluster<CR>], _ newOutliers: [CR]) {
         clusters = newClusters
+        outliers = newOutliers
     }
 
     // MARK: - Private Types
@@ -356,51 +377,56 @@ public class ClusterManager<CR: Clusterable> {
     /// 1. Preprocesses items into SIMD2 points
     /// 2. Runs DBSCAN clustering on a background thread
     /// 3. Remaps results back to original items
-    /// 4. Constructs ``Cluster`` objects
+    /// 4. Constructs ``Cluster`` objects and collects outliers
     ///
     /// - Parameters:
     ///   - items: The items to cluster.
     ///   - epsilon: The maximum distance (in degrees) between two items for them to be
     ///     considered part of the same cluster.
-    /// - Returns: An array of ``Cluster`` objects.
+    ///   - minimumPoints: The minimum number of neighbors required for a core point.
+    /// - Returns: A tuple of ``Cluster`` objects and outlier items.
     ///
     /// - Complexity:
     ///   - Time: O(n log n) with KD-tree spatial indexing
     ///   - Space: O(n) for storing points, indices, and clusters
-    private static func makeClusters(_ items: [CR], epsilon: Double) async -> [Cluster<CR>] {
+    private static func makeClusters(_ items: [CR], epsilon: Double, minimumPoints: Int) async -> (clusters: [Cluster<CR>], outliers: [CR]) {
 
         guard !items.isEmpty else {
-            return []
+            return ([], [])
         }
 
         // Step 1: Preprocess items into SIMD points and build coordinate mapping
         let (points, coordIndexMap) = preprocessItems(items)
 
         // Step 2: Run DBSCAN clustering in a detached task
-        let rawIndexClusters: [IndexCluster] = await Task.detached { [points, coordIndexMap, epsilon] () -> [IndexCluster] in
+        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) = await Task.detached { [points, coordIndexMap, epsilon, minimumPoints] () -> ([IndexCluster], IndexCluster) in
 
             let clusterer = DBSCANClusterer(values: points)
-            // Using minimumPoints = 1, all items will come back in clusters although some clusters may be size 1
-            // This makes it more straight forward when rendinging annotations on the map -- clusters of size 1 are individual points
-            // and can be rendered that way, while size > 1 are clusters and can be rendered with a cluster annotation.
             let rawClusters: [[SIMD2<Double>]]
+            let rawOutliers: [SIMD2<Double>]
             do {
-                (rawClusters, _) = try clusterer.cluster(epsilon: epsilon, minimumPoints: 1)
+                (rawClusters, rawOutliers) = try clusterer.cluster(epsilon: epsilon, minimumPoints: minimumPoints)
             } catch {
                 Logger(subsystem: "Clusterables", category: "ClusterManager")
                     .error("cluster threw unexpectedly: \(error)")
-                return []
+                return ([], [])
             }
             
             // Step 3: Remap SIMD points back to original indices
-            return remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)
+            let clusterIndices = remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)
+            let outlierIndices = remapPointsToIndices([rawOutliers], coordIndexMap: coordIndexMap).flatMap { $0 }
+            return (clusterIndices, outlierIndices)
         }.value
 
         // Step 4: Convert index clusters to Cluster<CR> objects
-        return rawIndexClusters.compactMap { indices -> Cluster<CR>? in
+        let clusters = rawIndexClusters.compactMap { indices -> Cluster<CR>? in
             guard !indices.isEmpty else { return nil }
             let clusterItems = indices.map { items[$0] }
             return Cluster(items: clusterItems)
         }
+        
+        let outliers = outlierIndices.map { items[$0] }
+        
+        return (clusters, outliers)
     }
 }

@@ -424,6 +424,27 @@ struct DBSCANClustererTests {
         #expect(outliers.isEmpty, "No outliers")
     }
     
+    // MARK: - Known Limitation Tests
+    
+    @Test("Points near the international date line do not cluster (known limitation)")
+    func dateLineClustering() throws {
+        // Two points 2° apart across the date line: 179°E and 179°W
+        let points = [
+            SIMD2<Double>(0.0, 179.0),
+            SIMD2<Double>(0.0, -179.0)
+        ]
+        let clusterer = DBSCANClusterer(values: points)
+        
+        // Epsilon of 5° should capture 2° of geographic separation,
+        // but Euclidean distance sees 358° instead of 2°
+        let (clusters, outliers) = try clusterer.cluster(epsilon: 5.0, minimumPoints: 1)
+        
+        // This documents the limitation — both points become separate clusters
+        // because the flat-plane distance is 358, not 2
+        #expect(clusters.count == 2, "Date line points fail to merge (known limitation)")
+        #expect(outliers.isEmpty)
+    }
+    
     // MARK: - Performance Characteristics Tests
     
     @Test("Handles moderate dataset efficiently")

@@ -14,6 +14,7 @@ struct StatisticsView: View {
     let visibleCount: Int
     let cityCount: Int
     let clusterCount: Int
+    let outlierCount: Int
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -24,6 +25,9 @@ struct StatisticsView: View {
                 HStack(spacing: 12) {
                     statisticRow(label: "Cities", value: "\(cityCount)")
                     statisticRow(label: "Clusters", value: "\(clusterCount)")
+                    if outlierCount > 0 {
+                        statisticRow(label: "Outliers", value: "\(outlierCount)")
+                    }
                 }
                 .padding(.leading, 8)
             }
@@ -119,7 +123,8 @@ struct DataSourceControlsView: View {
         useClustering: true,
         visibleCount: 342,
         cityCount: 280,
-        clusterCount: 15
+        clusterCount: 15,
+        outlierCount: 47
     )
     .padding()
 }

@@ -92,6 +92,13 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     }
                 }
             }
+            // Outliers are empty when using the default minimumPoints of 1.
+            // Increase minimumPoints to see isolated points rendered here.
+            ForEach(viewModel.clusterManager.outliers, id: \.self) { city in
+                Annotation(city.name, coordinate: city.coordinate) {
+                    OutlierAnnotationView()
+                }
+            }
         } else {
             ForEach(viewModel.visibleItems, id: \.self) { city in
                 Annotation(city.name, coordinate: city.coordinate) {
@@ -99,12 +106,20 @@ struct ClusterContentView: View, ClusterManagerProvider {
                 }
             }
         }
-    }
+}
 
     private struct CityAnnotationView: View {
         var body: some View {
             Circle()
                 .foregroundStyle(.red)
+                .frame(width: MapConstants.annotationSize)
+        }
+    }
+
+    private struct OutlierAnnotationView: View {
+        var body: some View {
+            Circle()
+                .foregroundStyle(.gray)
                 .frame(width: MapConstants.annotationSize)
         }
     }
@@ -151,7 +166,7 @@ struct ClusterContentView: View, ClusterManagerProvider {
         
         private var visibleCount: Int {
             viewModel.clusteringSettings.enabled
-                ? viewModel.clusterManager.clusters.reduce(0) { $0 + $1.items.count }
+                ? viewModel.clusterManager.clusters.reduce(0) { $0 + $1.items.count } + viewModel.clusterManager.outliers.count
                 : viewModel.visibleItems.count
         }
         
@@ -163,6 +178,10 @@ struct ClusterContentView: View, ClusterManagerProvider {
             viewModel.clusterManager.clusters.filter { $0.items.count > 1 }.count
         }
         
+        private var outlierCount: Int {
+            viewModel.clusterManager.outliers.count
+        }
+        
         var body: some View {
             HStack(spacing: 24) {
                 StatisticsView(
@@ -170,7 +189,8 @@ struct ClusterContentView: View, ClusterManagerProvider {
                     useClustering: viewModel.clusteringSettings.enabled,
                     visibleCount: visibleCount,
                     cityCount: cityCount,
-                    clusterCount: clusterCount
+                    clusterCount: clusterCount,
+                    outlierCount: outlierCount
                 )
                 
                 Spacer()

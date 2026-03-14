@@ -114,7 +114,7 @@ struct ClusterTests {
         #expect(cluster1.id != cluster2.id, "Each cluster should have unique ID")
     }
     
-    @Test("Cluster equality based on center and size")
+    @Test("Cluster equality is identity-based")
     func equality() {
         let pins1 = [
             TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
@@ -129,8 +129,9 @@ struct ClusterTests {
         let cluster1 = Cluster(items: pins1)
         let cluster2 = Cluster(items: pins2)
         
-        // Same center (0.5, 0.5) and same size (2)
-        #expect(cluster1 == cluster2, "Clusters with same center and size should be equal")
+        // Different instances are never equal, even with same center and size
+        #expect(cluster1 != cluster2, "Distinct clusters should not be equal")
+        #expect(cluster1 == cluster1, "A cluster should equal itself")
     }
     
     @Test("Cluster hashability")
@@ -184,13 +185,48 @@ struct ClusterManagerTests {
         #expect(manager.clusters.count == 2, "Should find two clusters")
     }
     
-    @Test("ClusterManager update with empty items produces empty clusters")
+    @Test("ClusterManager update with empty items produces empty results")
     func updateEmpty() async {
         let manager = ClusterManager<TestPin>()
         
         await manager.update([], epsilon: 1.0)
         
         #expect(manager.clusters.isEmpty, "Empty items should produce no clusters")
+        #expect(manager.outliers.isEmpty, "Empty items should produce no outliers")
+    }
+    
+    @Test("Default minimumPoints produces no outliers")
+    func defaultMinimumPointsNoOutliers() async {
+        let manager = ClusterManager<TestPin>()
+        let pins = [
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 50.0, longitude: 50.0), name: "B")
+        ]
+        
+        await manager.update(pins, epsilon: 1.0)
+        
+        #expect(manager.clusters.count == 2, "Each point should form its own cluster")
+        #expect(manager.outliers.isEmpty, "No outliers with minimumPoints=1")
+    }
+    
+    @Test("Higher minimumPoints produces outliers")
+    func minimumPointsProducesOutliers() async {
+        let manager = ClusterManager<TestPin>()
+        let pins = [
+            // Dense group
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.0, longitude: 0.0), name: "A"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.001, longitude: 0.001), name: "B"),
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 0.002, longitude: 0.002), name: "C"),
+            // Isolated point
+            TestPin(coordinate: CLLocationCoordinate2D(latitude: 50.0, longitude: 50.0), name: "D")
+        ]
+        
+        await manager.update(pins, epsilon: 0.01, minimumPoints: 3)
+        
+        #expect(manager.clusters.count == 1, "Dense group should form one cluster")
+        #expect(manager.clusters[0].size == 3, "Cluster should contain the three nearby points")
+        #expect(manager.outliers.count == 1, "Isolated point should be an outlier")
+        #expect(manager.outliers[0].coordinate.latitude == 50.0, "Outlier should be the distant point")
     }
 }
 

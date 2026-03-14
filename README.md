@@ -71,9 +71,11 @@ MapReader { mapProxy in
 }
 ```
 
-### Step 4 — Render clusters and individual annotations
+### Step 4 — Render clusters, outliers, and individual annotations
 
-Iterate over `clusterManager.clusters` to build your map annotations. In the code below, when a cluster contains a single item (`size == 1`), it is rendered using a red circle. When it contains multiple items, it is rendered using a `ClusterAnnotationView` ( found in the Example project)
+Iterate over `clusterManager.clusters` to build your map annotations. When a cluster contains a single item (`size == 1`), it is rendered using a red circle. When it contains multiple items, it is rendered using a `ClusterAnnotationView` (found in the Example project).
+
+If you use a `minimumPoints` value greater than 1 (see Step 5), points that don't meet the density threshold are placed in `clusterManager.outliers` instead of forming single-item clusters. Render them separately:
 
 ```swift
 Map(position: $cameraPosition, interactionModes: .all) {
@@ -92,16 +94,29 @@ Map(position: $cameraPosition, interactionModes: .all) {
             }
         }
     }
+
+    // Outliers — points that didn't meet the minimumPoints threshold
+    ForEach(clusterManager.outliers, id: \.self) { city in
+        Annotation(city.name, coordinate: city.coordinate) {
+            Circle()
+                .foregroundColor(.gray)
+                .frame(width: 7)
+        }
+    }
 }
 ```
 
 ### Step 5 — Trigger cluster updates
 
-Call `clusterManager.update` whenever the map appears, the camera position changes or whenever you want to update the clusters. The `epsilon` parameter is the clustering distance in degrees — items closer than this are grouped together. Use `MapProxy.degrees(fromPixels:)` to convert a screen-space pixel spacing to degrees at the current zoom level.
+Call `clusterManager.update` whenever the map appears, the camera position changes, or whenever you want to update the clusters.
+
+**Parameters:**
+- **`epsilon`** — The clustering distance in degrees. Items closer than this are grouped together. Use `MapProxy.degrees(fromPixels:)` to convert screen-space pixel spacing to degrees at the current zoom level.
+- **`minimumPoints`** *(optional, default: `1`)* — The minimum number of neighbors required for a point to be a core point. With the default of `1`, every point belongs to a cluster. Increase this to require denser groupings — isolated points that don't meet the threshold are placed in `clusterManager.outliers`.
 
 ```swift
 .onAppear {
-    Task { @MainActor in
+    Task {
         cameraPosition = .region(mapRegion)
         if let epsilon = mapProxy.degrees(fromPixels: spacing) {
             await clusterManager.update(items, epsilon: epsilon)
@@ -109,21 +124,41 @@ Call `clusterManager.update` whenever the map appears, the camera position chang
     }
 }
 .onMapCameraChange(frequency: .onEnd) { _ in
-    Task { @MainActor in
+    Task {
         if let epsilon = mapProxy.degrees(fromPixels: spacing) {
-            await clusterManager.update(items, epsilon: epsilon)
+            await clusterManager.update(items, epsilon: epsilon, minimumPoints: 3)
         }
     }
 }
 ```
 
-Although `clusterManager.update` is called on the `@MainActor`, the clustering itself is performed off the main thread. Results are then returned on the main thread.
+The `update` method can be called from any context. Clustering runs on a background thread, and results are published on the main actor.
 
 ---
 
 ## Demo
 
 Clone this repo and open `Example/Example.xcodeproject` to see a working implementation.
+
+---
+
+## Known Limitations
+
+### Coordinate Distance Approximation
+
+Clusterables uses Euclidean distance on raw latitude/longitude values when computing point proximity. This treats one degree of longitude as the same length as one degree of latitude, which is only true at the equator. At higher latitudes, a degree of longitude shrinks by `cos(latitude)` — for example, at 60°N it's half the actual ground distance.
+
+For typical map clustering (city or regional scale, interactive zoom levels), this has no meaningful effect on cluster quality. At continental or global scales, east-west distances are overestimated at high latitudes, which can cause clusters to split along the longitude axis when they shouldn't.
+
+### International Date Line
+
+Points on opposite sides of the international date line (e.g., 179°E and 179°W) are geographically 2° apart but appear 358° apart in Euclidean space. The clusterer will not group these points together, even with a large epsilon.
+
+This also affects the antimeridian more generally — any cluster that would span the ±180° longitude boundary will be split into two.
+
+### Further Reading
+
+Both limitations stem from treating latitude/longitude as a flat Cartesian plane. See [this KDTree discussion](https://github.com/Bersaelor/KDTree/issues/29) for approaches including latitude-adjusted distance formulas and projected coordinate systems.
 
 ---
 
