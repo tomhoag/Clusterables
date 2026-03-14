@@ -46,12 +46,12 @@ struct City: Clusterable {
 }
 ```
 
-### Step 2 — Add `ClusterManagerProvider` to your view
+### Step 2 — Add a `ClusterManager` to your view
 
-Make your `ContentView` (or whichever view contains your map) conform to `ClusterManagerProvider`, and add a `ClusterManager` state variable. Make sure to specify the type of `Clusterable` it will manage:
+Add a `ClusterManager` as a `@State` property, specifying the `Clusterable` type it will manage:
 
 ```swift
-struct ContentView: View, ClusterManagerProvider {
+struct ContentView: View {
 
     @State var clusterManager = ClusterManager<City>()
 

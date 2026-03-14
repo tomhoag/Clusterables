@@ -16,7 +16,7 @@ import SwiftUI
 /// - Optional DBSCAN-based clustering with adjustable spacing
 /// - Multiple city data file sources
 /// - Visibility filtering for better performance
-struct ClusterContentView: View, ClusterManagerProvider {
+struct ClusterContentView: View {
 
     @State private var viewModel = ClusterMapViewModel()
     @State private var updateCoordinator = UpdateCoordinator()

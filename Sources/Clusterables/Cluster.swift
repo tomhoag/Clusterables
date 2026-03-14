@@ -30,32 +30,6 @@ public protocol Clusterable: Equatable, Sendable {
     var coordinate: CLLocationCoordinate2D { get }
 }
 
-/// A protocol for views that provide cluster management functionality.
-///
-/// Conform your SwiftUI views to this protocol to standardize cluster manager access patterns.
-///
-/// ## Example
-/// ```swift
-/// struct MapView: View, ClusterManagerProvider {
-///     @State private var clusterManager = ClusterManager<MapPin>()
-///
-///     var body: some View {
-///         Map {
-///             ForEach(clusterManager.clusters) { cluster in
-///                 // Render cluster annotations
-///             }
-///         }
-///     }
-/// }
-/// ```
-public protocol ClusterManagerProvider: View {
-    /// The type of items that can be clustered.
-    associatedtype ClusterableType: Clusterable
-
-    /// The cluster manager instance responsible for managing clusters.
-    var clusterManager: ClusterManager<ClusterableType> { get }
-}
-
 /// A collection of geographically proximate items on a map.
 ///
 /// A cluster groups one or more ``Clusterable`` items that are close to each other,
