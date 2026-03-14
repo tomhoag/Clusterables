@@ -236,11 +236,15 @@ public class ClusterManager<CR: Clusterable> {
     /// - Parameters:
     ///   - items: The items to cluster. Each item must conform to ``Clusterable``.
     ///   - epsilon: The maximum distance in degrees between two points for them to be
-    ///     considered neighbors. Use ``MapProxy/degrees(fromPixels:)`` to convert
-    ///     screen-space pixel spacing to degrees at the current zoom level.
+    ///     considered neighbors. Must be positive and finite. Use
+    ///     ``MapProxy/degrees(fromPixels:)`` to convert screen-space pixel spacing to
+    ///     degrees at the current zoom level. If the value is invalid (zero, negative,
+    ///     NaN, or infinite), the call is ignored and the existing clusters are preserved.
     ///   - minimumPoints: The minimum number of neighbors required for a point to be
-    ///     considered a core point. Points with fewer neighbors become outliers.
-    ///     Defaults to `1`, meaning every point belongs to a cluster.
+    ///     considered a core point. Must be non-negative. Points with fewer neighbors
+    ///     become outliers. Defaults to `1`, meaning every point belongs to a cluster.
+    ///     If the value is negative, the call is ignored and the existing clusters
+    ///     are preserved.
     ///
     /// - Note: This method should typically be called in response to map camera changes
     ///   using SwiftUI's `.onMapCameraChange` modifier.
@@ -263,6 +267,15 @@ public class ClusterManager<CR: Clusterable> {
     /// }
     /// ```
     public func update(_ items: [CR], epsilon: Double, minimumPoints: Int = 1) async {
+        guard epsilon > 0 && epsilon.isFinite else {
+            Self.logger.warning("update ignored: epsilon must be positive and finite, got \(epsilon)")
+            return
+        }
+        guard minimumPoints >= 0 else {
+            Self.logger.warning("update ignored: minimumPoints must be non-negative, got \(minimumPoints)")
+            return
+        }
+
         let generation = _generation.withLock { value -> Int in
             value += 1
             return value
