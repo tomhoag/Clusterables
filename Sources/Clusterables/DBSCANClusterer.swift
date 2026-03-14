@@ -312,7 +312,9 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
                 .flatMap { valueToIndices[$0, default: []] }
             
             if newNeighbors.count >= minimumPoints {
-                queue.append(contentsOf: newNeighbors)
+                for idx in newNeighbors where labels[idx] == nil {
+                    queue.append(idx)
+                }
             }
         }
         return true
