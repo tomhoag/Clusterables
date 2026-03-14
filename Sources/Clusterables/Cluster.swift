@@ -437,7 +437,8 @@ public class ClusterManager<CR: Clusterable> {
                     generation: generation, currentGeneration: currentGeneration
                 )
             } catch {
-                logger.error("cluster threw unexpectedly: \(error)")
+                logger.error("DBSCANClusterer.cluster threw unexpectedly: \(error)")
+                assertionFailure("DBSCANClusterer.cluster threw unexpectedly: \(error)")
                 return ([], [])
             }
             
