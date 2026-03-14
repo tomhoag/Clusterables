@@ -48,9 +48,6 @@ public protocol Clusterable: Equatable, Sendable {
 ///
 /// ## Topics
 ///
-/// ### Creating Clusters
-/// - ``init(items:)``
-///
 /// ### Accessing Cluster Properties
 /// - ``id``
 /// - ``items``
@@ -86,9 +83,7 @@ public struct Cluster<CR: Clusterable>: Identifiable, Sendable {
     ///
     /// - Parameter items: The clusterable items to group together. Must not be empty.
     ///
-    /// - Note: This initializer is typically called by ``ClusterManager`` rather than
-    ///   directly in application code.
-    public init(items: [CR]) {
+    init(items: [CR]) {
         self.items = items
 
         let count = Double(items.count)
