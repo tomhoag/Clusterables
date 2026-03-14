@@ -98,7 +98,7 @@ enum ClusterError: Error, Equatable {
 /// - ``init(values:)``
 ///
 /// ### Performing Clustering
-/// - ``cluster(epsilon:minimumPoints:)``
+/// - ``cluster(epsilon:minimumPoints:generation:currentGeneration:)``
 struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// The values to be clustered.
     private let values: [Value]

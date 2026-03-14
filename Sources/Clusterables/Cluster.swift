@@ -41,9 +41,11 @@ public protocol Clusterable: Equatable, Sendable {
 ///
 /// ## Example
 /// ```swift
-/// let cluster = Cluster(items: [pin1, pin2, pin3])
-/// print(cluster.size)    // 3
-/// print(cluster.center)  // CLLocationCoordinate2D(...)
+/// // Clusters are created by ClusterManager during an update call.
+/// for cluster in clusterManager.clusters {
+///     print(cluster.size)    // number of items in this cluster
+///     print(cluster.center)  // average coordinate of the items
+/// }
 /// ```
 ///
 /// ## Topics
@@ -81,8 +83,7 @@ public struct Cluster<CR: Clusterable>: Identifiable, Sendable {
     /// The cluster's center point is automatically calculated as the centroid
     /// (average coordinate) of all items.
     ///
-    /// - Parameter items: The clusterable items to group together. Must not be empty.
-    ///
+    /// - Parameter items: The clusterable items to group together.
     init(items: [CR]) {
         self.items = items
 
