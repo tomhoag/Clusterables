@@ -333,7 +333,7 @@ public class ClusterManager<CR: Clusterable> {
         var points: [Point] = []
         points.reserveCapacity(items.count)
         var coordIndexMap: CoordinateIndexMap = [:]
-        coordIndexMap.reserveCapacity(items.count * 2)
+        coordIndexMap.reserveCapacity(items.count)
         
         for (i, item) in items.enumerated() {
             let lat = item.coordinate.latitude
