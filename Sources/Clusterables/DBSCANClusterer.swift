@@ -6,6 +6,9 @@
 //
 
 import KDTree
+import os
+
+private let logger = Logger(subsystem: "Clusterables", category: "DBSCANClusterer")
 
 /// Errors thrown by ``DBSCANClusterer/cluster(epsilon:minimumPoints:)``.
 public enum ClusterError: Error, Equatable {
@@ -150,6 +153,12 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///     - **Lower values**: More clusters, more sensitive to noise
     ///     - **Higher values**: Fewer, denser clusters, more outliers
     ///     - **Typical values**: 3-5 for 2D data, `2 × dimensions` for higher dimensions
+    ///   - generation: The generation number for this clustering call. Defaults to `0`.
+    ///     Used with `currentGeneration` to detect stale operations.
+    ///   - currentGeneration: An optional lock holding the current generation counter.
+    ///     When non-nil, the algorithm checks this at each iteration of the main loop
+    ///     and during cluster expansion. If the generation has advanced, the operation
+    ///     bails out early and returns empty arrays. Defaults to `nil` (no staleness checks).
     ///
     /// - Returns: A tuple containing:
     ///   - `clusters`: An array of value arrays, where each inner array represents
@@ -215,7 +224,11 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///
     /// - Note: Duplicate points are supported. Each occurrence is treated as a separate point
     ///   for density calculations and cluster membership.
-    public func cluster(epsilon: Double, minimumPoints: Int) throws(ClusterError) -> (clusters: [[Value]], outliers: [Value]) {
+    public func cluster(
+        epsilon: Double, minimumPoints: Int,
+        generation: Int = 0,
+        currentGeneration: OSAllocatedUnfairLock<Int>? = nil
+    ) throws(ClusterError) -> (clusters: [[Value]], outliers: [Value]) {
         guard epsilon > 0 && epsilon.isFinite else { throw .invalidEpsilon(epsilon) }
         guard minimumPoints >= 0 else { throw .invalidMinimumPoints(minimumPoints) }
         
@@ -229,6 +242,10 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
         var currentLabel = 0
         
         for i in values.indices {
+            guard !isStale(generation: generation, currentGeneration: currentGeneration) else {
+                logger.debug("DBSCAN generation \(generation) cancelled at point \(i) of \(self.values.count)")
+                return ([], [])
+            }
             guard labels[i] == nil else { continue }
             
             let neighbors = kdTree.allPoints(within: epsilon, of: values[i])
@@ -237,9 +254,14 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
             guard neighbors.count >= minimumPoints else { continue }
             
             labels[i] = currentLabel
-            expandCluster(from: neighbors, label: currentLabel,
+            let completed = expandCluster(from: neighbors, label: currentLabel,
                          labels: &labels, valueToIndices: valueToIndices,
-                         epsilon: epsilon, minimumPoints: minimumPoints)
+                         epsilon: epsilon, minimumPoints: minimumPoints,
+                         generation: generation, currentGeneration: currentGeneration)
+            guard completed else {
+                logger.debug("DBSCAN generation \(generation) cancelled during expansion of cluster \(currentLabel)")
+                return ([], [])
+            }
             currentLabel += 1
         }
         
@@ -261,15 +283,25 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///   - valueToIndices: Mapping from values to all of their array indices for fast lookup.
     ///   - epsilon: The neighborhood distance threshold.
     ///   - minimumPoints: The minimum neighbors required for a point to be a core point.
+    ///   - generation: The generation number for staleness detection.
+    ///   - currentGeneration: Optional lock checked each iteration to bail out early.
+    ///
+    /// - Returns: `true` if expansion completed normally, `false` if bailed out due to staleness.
     ///
     /// - Complexity: O(k log n) where k is the cluster size and n is the total number of points.
     private func expandCluster(from initialNeighbors: [Int], label: Int,
                                labels: inout [Int?], valueToIndices: [Value: [Int]],
-                               epsilon: Double, minimumPoints: Int) {
+                               epsilon: Double, minimumPoints: Int,
+                               generation: Int, currentGeneration: OSAllocatedUnfairLock<Int>?) -> Bool {
         var queue = initialNeighbors
         var head = 0
         
         while head < queue.count {
+            guard !isStale(generation: generation, currentGeneration: currentGeneration) else {
+                logger.debug("DBSCAN generation \(generation) cancelled during cluster expansion")
+                return false
+            }
+            
             let neighborIndex = queue[head]
             head += 1
             
@@ -283,6 +315,15 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
                 queue.append(contentsOf: newNeighbors)
             }
         }
+        return true
+    }
+    
+    /// Returns `true` if the current generation has advanced past the given generation,
+    /// indicating this clustering operation is stale and should bail out.
+    /// Returns `false` when no lock is provided (the default path).
+    private func isStale(generation: Int, currentGeneration: OSAllocatedUnfairLock<Int>?) -> Bool {
+        guard let currentGeneration else { return false }
+        return currentGeneration.withLock { $0 } != generation
     }
     
     /// Converts cluster labels into the final result format.

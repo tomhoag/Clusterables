@@ -134,6 +134,14 @@ Call `clusterManager.update` whenever the map appears, the camera position chang
 
 The `update` method can be called from any context. Clustering runs on a background thread, and results are published on the main actor.
 
+### Stale update cancellation
+
+When `update` is called while a previous update is still running, the earlier update is automatically discarded — its results are never returned. This happens at multiple levels: before DBSCAN starts, during the main clustering loop, during cluster expansion, and before results are written to the UI. Only the most recent call's results are ever returned.
+
+This is **not debouncing**. The library does not delay or throttle calls to `update`. Every call starts immediately. The library's responsibility is ensuring that only the latest results are returned to the caller — it does not decide *when* or *how often* `update` should be called. That is left to the caller.
+
+If your UI triggers updates rapidly (for example, during continuous map panning), you should debounce or throttle on your side before calling `update`. The Example project demonstrates this with an `UpdateCoordinator` actor that cancels and restarts a delayed task on each camera change. The library's internal cancellation is a safety net that prevents stale results from briefly flashing on screen, not a substitute for call-site throttling.
+
 ---
 
 ## Demo
