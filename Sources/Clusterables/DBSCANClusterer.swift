@@ -11,7 +11,7 @@ import os
 private let logger = Logger(subsystem: "Clusterables", category: "DBSCANClusterer")
 
 /// Errors thrown by ``DBSCANClusterer/cluster(epsilon:minimumPoints:)``.
-public enum ClusterError: Error, Equatable {
+enum ClusterError: Error, Equatable {
     /// The `epsilon` value is not positive and finite.
     case invalidEpsilon(Double)
     /// The `minimumPoints` value is negative.
@@ -99,7 +99,7 @@ public enum ClusterError: Error, Equatable {
 ///
 /// ### Performing Clustering
 /// - ``cluster(epsilon:minimumPoints:)``
-public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
+struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// The values to be clustered.
     private let values: [Value]
     
@@ -126,7 +126,7 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// ]
     /// let clusterer = DBSCANClusterer(values: points)
     /// ```
-    public init(values: [Value]) {
+    init(values: [Value]) {
         self.values = values
         self.kdTree = KDTree(values: values)
     }
@@ -224,7 +224,7 @@ public struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///
     /// - Note: Duplicate points are supported. Each occurrence is treated as a separate point
     ///   for density calculations and cluster membership.
-    public func cluster(
+    func cluster(
         epsilon: Double, minimumPoints: Int,
         generation: Int = 0,
         currentGeneration: OSAllocatedUnfairLock<Int>? = nil
