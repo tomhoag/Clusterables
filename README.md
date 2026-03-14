@@ -13,9 +13,9 @@ Powered by **DBSCAN** (Density-Based Spatial Clustering of Applications with Noi
 
 ## Requirements
 
-- iOS 26.0+
+- iOS 17.0+ / macOS 14.0+
 - Swift 6.0+
-- Xcode 26.0+
+- Xcode 16.0+
 
 ---
 

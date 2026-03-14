@@ -257,8 +257,6 @@ struct IntegrationTests {
     
 }
 
-// MARK: - Edge Cases
-
 // These tests verify that the internal generation counter used to discard stale
 // update results does not interfere with normal ClusterManager behavior. The actual
 // staleness-discard path (where a newer update causes an in-flight update to bail out)

@@ -10,7 +10,7 @@ import os
 
 private let logger = Logger(subsystem: "Clusterables", category: "DBSCANClusterer")
 
-/// Errors thrown by ``DBSCANClusterer/cluster(epsilon:minimumPoints:)``.
+/// Errors thrown by ``DBSCANClusterer/cluster(epsilon:minimumPoints:generation:currentGeneration:)``.
 enum ClusterError: Error, Equatable {
     /// The `epsilon` value is not positive and finite.
     case invalidEpsilon(Double)
