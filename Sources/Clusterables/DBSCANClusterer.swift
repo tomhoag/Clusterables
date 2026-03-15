@@ -102,10 +102,10 @@ enum ClusterError: Error, Equatable {
 struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     /// The values to be clustered.
     private let values: [Value]
-    
+
     /// KD-tree spatial index for efficient neighbor queries.
     private let kdTree: KDTree<Value>
-    
+
     /// Creates a new DBSCAN clusterer with the specified values.
     ///
     /// The initializer builds a KD-tree spatial index for efficient neighbor searching
@@ -130,7 +130,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
         self.values = values
         self.kdTree = KDTree(values: values)
     }
-    
+
     /// Clusters values using the DBSCAN algorithm with KD-tree acceleration.
     ///
     /// This method identifies dense regions in the dataset by finding points that have
@@ -183,7 +183,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ///     SIMD2(37.7750, -122.4195),
     ///     SIMD2(37.7751, -122.4196),
     ///
-    ///     // Airport cluster  
+    ///     // Airport cluster
     ///     SIMD2(37.6213, -122.3790),
     ///     SIMD2(37.6214, -122.3791),
     ///
@@ -231,28 +231,28 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     ) throws(ClusterError) -> (clusters: [[Value]], outliers: [Value]) {
         guard epsilon > 0 && epsilon.isFinite else { throw .invalidEpsilon(epsilon) }
         guard minimumPoints >= 0 else { throw .invalidMinimumPoints(minimumPoints) }
-        
+
         guard !values.isEmpty else { return ([], []) }
-        
+
         var labels = [Int?](repeating: nil, count: values.count)
         var valueToIndices = [Value: [Int]]()
         for (index, value) in values.enumerated() {
             valueToIndices[value, default: []].append(index)
         }
         var currentLabel = 0
-        
+
         for i in values.indices {
             guard !isStale(generation: generation, currentGeneration: currentGeneration) else {
                 logger.debug("DBSCAN generation \(generation) cancelled at point \(i) of \(self.values.count)")
                 return ([], [])
             }
             guard labels[i] == nil else { continue }
-            
+
             let neighbors = kdTree.allPoints(within: epsilon, of: values[i])
                 .flatMap { valueToIndices[$0, default: []] }
-            
+
             guard neighbors.count >= minimumPoints else { continue }
-            
+
             labels[i] = currentLabel
             let completed = expandCluster(from: neighbors, label: currentLabel,
                          labels: &labels, valueToIndices: valueToIndices,
@@ -264,10 +264,10 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
             }
             currentLabel += 1
         }
-        
+
         return buildResults(from: labels)
     }
-    
+
     /// Expands a cluster by recursively adding reachable density-connected points.
     ///
     /// This method performs a breadth-first expansion from an initial set of neighbors,
@@ -295,22 +295,22 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
                                generation: Int, currentGeneration: OSAllocatedUnfairLock<Int>?) -> Bool {
         var queue = initialNeighbors
         var head = 0
-        
+
         while head < queue.count {
             guard !isStale(generation: generation, currentGeneration: currentGeneration) else {
                 logger.debug("DBSCAN generation \(generation) cancelled during cluster expansion")
                 return false
             }
-            
+
             let neighborIndex = queue[head]
             head += 1
-            
+
             guard labels[neighborIndex] == nil else { continue }
             labels[neighborIndex] = label
-            
+
             let newNeighbors = kdTree.allPoints(within: epsilon, of: values[neighborIndex])
                 .flatMap { valueToIndices[$0, default: []] }
-            
+
             if newNeighbors.count >= minimumPoints {
                 for idx in newNeighbors where labels[idx] == nil {
                     queue.append(idx)
@@ -319,7 +319,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
         }
         return true
     }
-    
+
     /// Returns `true` if the current generation has advanced past the given generation,
     /// indicating this clustering operation is stale and should bail out.
     /// Returns `false` when no lock is provided (the default path).
@@ -327,7 +327,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
         guard let currentGeneration else { return false }
         return currentGeneration.withLock { $0 } != generation
     }
-    
+
     /// Converts cluster labels into the final result format.
     ///
     /// Takes the array of cluster labels (with `nil` for outliers) and organizes
@@ -340,7 +340,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
     private func buildResults(from labels: [Int?]) -> (clusters: [[Value]], outliers: [Value]) {
         var clustersDict = [Int: [Value]]()
         var outliers = [Value]()
-        
+
         for (index, value) in values.enumerated() {
             if let label = labels[index] {
                 clustersDict[label, default: []].append(value)
@@ -348,7 +348,7 @@ struct DBSCANClusterer<Value: Equatable & Hashable & KDTreePoint> {
                 outliers.append(value)
             }
         }
-        
+
         let clusters = clustersDict.keys.sorted().map { clustersDict[$0]! }
         return (clusters, outliers)
     }

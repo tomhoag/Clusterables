@@ -165,27 +165,27 @@ extension Cluster: Hashable {
 @Observable
 public class ClusterManager<CR: Clusterable> {
     // MARK: - Type Aliases
-    
+
     /// A 2D point in coordinate space (latitude, longitude)
     private typealias Point = SIMD2<Double>
-    
+
     /// A collection of points representing a raw cluster from DBSCAN
     private typealias PointCluster = [Point]
-    
+
     /// A collection of array indices representing items in a cluster
     private typealias IndexCluster = [Int]
-    
+
     /// Maps quantized coordinates to the original item indices
     private typealias CoordinateIndexMap = [PointKey: [Int]]
-    
+
     // MARK: - Private Properties
 
     private static var logger: Logger {
         Logger(subsystem: "Clusterables", category: "ClusterManager")
     }
-    
+
     // MARK: - Public Properties
-    
+
     /// The current set of clusters generated from the most recent update.
     ///
     /// This property is observed by SwiftUI, triggering view updates when clusters change.
@@ -194,7 +194,7 @@ public class ClusterManager<CR: Clusterable> {
     /// Items that don't meet the density threshold are excluded from clusters
     /// and placed in ``outliers`` instead.
     public private(set) var clusters: [Cluster<CR>]
-    
+
     /// Items that were not assigned to any cluster in the most recent update.
     ///
     /// Outliers are points that don't have enough neighbors within ``update(_:epsilon:minimumPoints:)``'s
@@ -207,7 +207,7 @@ public class ClusterManager<CR: Clusterable> {
     public private(set) var outliers: [CR]
 
     // MARK: - Initialization
-    
+
     /// Creates a new cluster manager with an empty set of clusters.
     ///
     /// After initialization, call ``update(_:epsilon:minimumPoints:)`` to generate clusters
@@ -218,7 +218,7 @@ public class ClusterManager<CR: Clusterable> {
     }
 
     // MARK: - Public Methods
-    
+
     /// Updates the clusters based on the desired clustering distance and density threshold.
     ///
     /// This method analyzes the provided items and groups them into clusters based on their
@@ -289,7 +289,7 @@ public class ClusterManager<CR: Clusterable> {
         }
         await setResults(newClusters, newOutliers)
     }
-    
+
     @MainActor
     private func setResults(_ newClusters: [Cluster<CR>], _ newOutliers: [CR]) {
         clusters = newClusters
@@ -297,22 +297,22 @@ public class ClusterManager<CR: Clusterable> {
     }
 
     // MARK: - Private Types
-    
+
     fileprivate struct PointKey: Hashable, Sendable {
         let latKey: Int64
         let lonKey: Int64
     }
-    
+
     // MARK: - Private Properties
-    
+
     /// The precision used for coordinate hashing (6 decimal places ≈ 0.1 meter accuracy)
     private static var coordinatePrecision: Double { 1_000_000.0 }
-    
+
     /// Incremented on each ``update(_:epsilon:minimumPoints:)`` call to detect and discard stale results.
     private let _generation = OSAllocatedUnfairLock(initialState: 0)
 
     // MARK: - Private Methods
-    
+
     /// Quantizes a latitude/longitude pair into a ``PointKey`` for dictionary lookup.
     ///
     /// This is extracted into a single function because the same quantization must be
@@ -326,7 +326,7 @@ public class ClusterManager<CR: Clusterable> {
             lonKey: Int64((longitude * coordinatePrecision).rounded())
         )
     }
-    
+
     /// Converts clusterable items into SIMD points and builds a reverse lookup map.
     ///
     /// This preprocessing step quantizes coordinates for efficient hashing and creates
@@ -341,19 +341,19 @@ public class ClusterManager<CR: Clusterable> {
         points.reserveCapacity(items.count)
         var coordIndexMap: CoordinateIndexMap = [:]
         coordIndexMap.reserveCapacity(items.count)
-        
+
         for (i, item) in items.enumerated() {
             let lat = item.coordinate.latitude
             let lon = item.coordinate.longitude
             points.append(Point(lat, lon))
-            
+
             let key = pointKey(latitude: lat, longitude: lon)
             coordIndexMap[key, default: []].append(i)
         }
-        
+
         return (points, coordIndexMap)
     }
-    
+
     /// Remaps SIMD2 points back to original item indices using the coordinate map.
     ///
     /// After DBSCAN produces clusters of SIMD2 points, this method translates them back
@@ -369,12 +369,12 @@ public class ClusterManager<CR: Clusterable> {
     ) -> [IndexCluster] {
         var indexClusters: [IndexCluster] = []
         indexClusters.reserveCapacity(rawClusters.count)
-        
+
         for raw in rawClusters {
             guard !raw.isEmpty else { continue }
             var clusterIndices: IndexCluster = []
             clusterIndices.reserveCapacity(raw.count)
-            
+
             for pt in raw {
                 // SIMD2 stores (lat, lon) as (x, y)
                 let key = pointKey(latitude: pt.x, longitude: pt.y)
@@ -382,15 +382,15 @@ public class ClusterManager<CR: Clusterable> {
                     clusterIndices.append(contentsOf: indices)
                 }
             }
-            
+
             if !clusterIndices.isEmpty {
                 indexClusters.append(clusterIndices)
             }
         }
-        
+
         return indexClusters
     }
-    
+
     /// Creates clusters from items using the DBSCAN algorithm.
     ///
     /// This is the main clustering implementation that:
@@ -433,7 +433,9 @@ public class ClusterManager<CR: Clusterable> {
         }
 
         // Step 2: Run DBSCAN clustering in a detached task
-        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) = await Task.detached { [points, coordIndexMap, epsilon, minimumPoints, currentGeneration] () -> ([IndexCluster], IndexCluster) in
+        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) =
+            await Task.detached { [points, coordIndexMap, epsilon, minimumPoints,
+                                   currentGeneration] () -> ([IndexCluster], IndexCluster) in
 
             let clusterer = DBSCANClusterer(values: points)
             let rawClusters: [[SIMD2<Double>]]
@@ -448,7 +450,7 @@ public class ClusterManager<CR: Clusterable> {
                 assertionFailure("DBSCANClusterer.cluster threw unexpectedly: \(error)")
                 return ([], [])
             }
-            
+
             // Step 3: Remap SIMD points back to original indices
             let clusterIndices = remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)
             let outlierIndices = remapPointsToIndices([rawOutliers], coordIndexMap: coordIndexMap).flatMap { $0 }
@@ -467,9 +469,9 @@ public class ClusterManager<CR: Clusterable> {
             let clusterItems = indices.map { items[$0] }
             return Cluster(items: clusterItems)
         }
-        
+
         let outliers = outlierIndices.map { items[$0] }
-        
+
         return (clusters, outliers)
     }
 }
