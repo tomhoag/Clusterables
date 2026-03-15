@@ -56,6 +56,7 @@ struct ControlsSheetView: View {
                             onVisibleOnlyToggle()
                         }
                     Toggle("Show Statistics", isOn: $viewModel.clusteringSettings.showStatistics)
+                    
                 }
             }
             .navigationTitle("Settings")

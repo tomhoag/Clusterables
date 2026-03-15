@@ -144,9 +144,32 @@ If your UI triggers updates rapidly (for example, during continuous map panning)
 
 ---
 
-## Demo
+## Example Apps
 
-Clone this repo and open `Example/Example.xcodeproject` to see a working implementation.
+Clone this repo and open `Example/Example.xcodeproj`. The project contains two targets:
+
+### SimpleExample
+
+A minimal app that demonstrates Clusterables in under 100 lines of code. It loads 1,813 US cities from bundled JSON, displays them on a map, and clusters them in real time as you pan and zoom. This is the best place to start if you want to understand the basics:
+
+- `ClusterManager` as a `@State` property
+- `MapProxy.degrees(fromPixels:)` to compute epsilon
+- `clusterManager.update(_:epsilon:)` on every camera change
+- `clusterManager.clusters` driving `ForEach` annotations
+
+No view model, no debouncing, no settings UI — just the core clustering workflow.
+
+### Example
+
+A full-featured app that builds on the same foundation with production-oriented extras:
+
+- **Debounced updates** via an `UpdateCoordinator` actor that cancels and restarts a delayed task on each camera change
+- **Visible-only filtering** to cluster only the points currently on screen
+- **Multiple data sets** (938 / 1,813 / 33K US cities) switchable at runtime
+- **Adjustable cluster spacing** via a slider
+- **Draggable statistics overlay** showing cluster count, point count, and timing
+- **Settings sheet** for toggling clustering, choosing data sources, and controlling the overlay
+- **Loading indicator** during data loading and cluster computation
 
 ---
 

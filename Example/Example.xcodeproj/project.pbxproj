@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		006697742F60B1B400F70BC3 /* Clusterables in Frameworks */ = {isa = PBXBuildFile; productRef = 006697732F60B1B400F70BC3 /* Clusterables */; };
+		00B7AE042F6717AB00224840 /* Clusterables in Frameworks */ = {isa = PBXBuildFile; productRef = 00B7AE032F6717AB00224840 /* Clusterables */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -24,7 +25,8 @@
 
 /* Begin PBXFileReference section */
 		007B077A2F267DA700B0DB69 /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		00E72FE02F268DCA0010B255 /* ExportCities */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ExportCities; sourceTree = BUILT_PRODUCTS_DIR; };
+		00B7ADF12F67168600224840 /* SimpleExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimpleExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00E72FE02F268DCA0010B255 /* ExportCities */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = ExportCities; path = /Users/tomhoag/projects/Clusterables/Example/build/Debug/ExportCities; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -36,6 +38,11 @@
 			path = Example;
 			sourceTree = "<group>";
 		};
+		00B7ADF22F67168600224840 /* SimpleExample */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SimpleExample;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,6 +51,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				006697742F60B1B400F70BC3 /* Clusterables in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		00B7ADEE2F67168600224840 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00B7AE042F6717AB00224840 /* Clusterables in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -61,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				007B077C2F267DA700B0DB69 /* Example */,
+				00B7ADF22F67168600224840 /* SimpleExample */,
 				007B07922F267ED800B0DB69 /* Frameworks */,
 				007B077B2F267DA700B0DB69 /* Products */,
 			);
@@ -70,7 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				007B077A2F267DA700B0DB69 /* Example.app */,
-				00E72FE02F268DCA0010B255 /* ExportCities */,
+				00B7ADF12F67168600224840 /* SimpleExample.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +124,29 @@
 			productReference = 007B077A2F267DA700B0DB69 /* Example.app */;
 			productType = "com.apple.product-type.application";
 		};
+		00B7ADF02F67168600224840 /* SimpleExample */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00B7ADF92F67168900224840 /* Build configuration list for PBXNativeTarget "SimpleExample" */;
+			buildPhases = (
+				00B7ADED2F67168600224840 /* Sources */,
+				00B7ADEE2F67168600224840 /* Frameworks */,
+				00B7ADEF2F67168600224840 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				00B7ADF22F67168600224840 /* SimpleExample */,
+			);
+			name = SimpleExample;
+			packageProductDependencies = (
+				00B7AE032F6717AB00224840 /* Clusterables */,
+			);
+			productName = SimpleExample;
+			productReference = 00B7ADF12F67168600224840 /* SimpleExample.app */;
+			productType = "com.apple.product-type.application";
+		};
 		00E72FDF2F268DCA0010B255 /* ExportCities */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 00E72FE42F268DCA0010B255 /* Build configuration list for PBXNativeTarget "ExportCities" */;
@@ -134,11 +173,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2620;
+				LastSwiftUpdateCheck = 2630;
 				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					007B07792F267DA700B0DB69 = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					00B7ADF02F67168600224840 = {
+						CreatedOnToolsVersion = 26.3;
 					};
 					00E72FDF2F268DCA0010B255 = {
 						CreatedOnToolsVersion = 26.2;
@@ -164,6 +206,7 @@
 			targets = (
 				007B07792F267DA700B0DB69 /* Example */,
 				00E72FDF2F268DCA0010B255 /* ExportCities */,
+				00B7ADF02F67168600224840 /* SimpleExample */,
 			);
 		};
 /* End PBXProject section */
@@ -176,10 +219,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		00B7ADEF2F67168600224840 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		007B07762F267DA700B0DB69 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		00B7ADED2F67168600224840 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -381,6 +438,70 @@
 			};
 			name = Release;
 		};
+		00B7ADFA2F67168900224840 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L6BVR86H7Q;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.offbyone.SimpleExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00B7ADFB2F67168900224840 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = L6BVR86H7Q;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.offbyone.SimpleExample;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		00E72FE52F268DCA0010B255 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -434,6 +555,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		00B7ADF92F67168900224840 /* Build configuration list for PBXNativeTarget "SimpleExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00B7ADFA2F67168900224840 /* Debug */,
+				00B7ADFB2F67168900224840 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		00E72FE42F268DCA0010B255 /* Build configuration list for PBXNativeTarget "ExportCities" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -455,6 +585,11 @@
 /* Begin XCSwiftPackageProductDependency section */
 		006697732F60B1B400F70BC3 /* Clusterables */ = {
 			isa = XCSwiftPackageProductDependency;
+			productName = Clusterables;
+		};
+		00B7AE032F6717AB00224840 /* Clusterables */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 006697722F60B1B400F70BC3 /* XCLocalSwiftPackageReference "../../Clusterables" */;
 			productName = Clusterables;
 		};
 /* End XCSwiftPackageProductDependency section */
