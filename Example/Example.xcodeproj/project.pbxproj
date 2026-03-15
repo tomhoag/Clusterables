@@ -11,22 +11,9 @@
 		00B7AE042F6717AB00224840 /* Clusterables in Frameworks */ = {isa = PBXBuildFile; productRef = 00B7AE032F6717AB00224840 /* Clusterables */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		00E72FDE2F268DCA0010B255 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
 		007B077A2F267DA700B0DB69 /* Example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		00B7ADF12F67168600224840 /* SimpleExample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SimpleExample.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		00E72FE02F268DCA0010B255 /* ExportCities */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; name = ExportCities; path = /Users/tomhoag/projects/Clusterables/Example/build/Debug/ExportCities; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -59,13 +46,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				00B7AE042F6717AB00224840 /* Clusterables in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		00E72FDD2F268DCA0010B255 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -147,25 +127,6 @@
 			productReference = 00B7ADF12F67168600224840 /* SimpleExample.app */;
 			productType = "com.apple.product-type.application";
 		};
-		00E72FDF2F268DCA0010B255 /* ExportCities */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 00E72FE42F268DCA0010B255 /* Build configuration list for PBXNativeTarget "ExportCities" */;
-			buildPhases = (
-				00E72FDC2F268DCA0010B255 /* Sources */,
-				00E72FDD2F268DCA0010B255 /* Frameworks */,
-				00E72FDE2F268DCA0010B255 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = ExportCities;
-			packageProductDependencies = (
-			);
-			productName = ExportCities;
-			productReference = 00E72FE02F268DCA0010B255 /* ExportCities */;
-			productType = "com.apple.product-type.tool";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -181,9 +142,6 @@
 					};
 					00B7ADF02F67168600224840 = {
 						CreatedOnToolsVersion = 26.3;
-					};
-					00E72FDF2F268DCA0010B255 = {
-						CreatedOnToolsVersion = 26.2;
 					};
 				};
 			};
@@ -205,7 +163,6 @@
 			projectRoot = "";
 			targets = (
 				007B07792F267DA700B0DB69 /* Example */,
-				00E72FDF2F268DCA0010B255 /* ExportCities */,
 				00B7ADF02F67168600224840 /* SimpleExample */,
 			);
 		};
@@ -237,13 +194,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		00B7ADED2F67168600224840 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		00E72FDC2F268DCA0010B255 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -502,38 +452,6 @@
 			};
 			name = Release;
 		};
-		00E72FE52F268DCA0010B255 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = L6BVR86H7Q;
-				ENABLE_HARDENED_RUNTIME = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = studio.offbyone.foo;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
-		};
-		00E72FE62F268DCA0010B255 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = L6BVR86H7Q;
-				ENABLE_HARDENED_RUNTIME = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = studio.offbyone.foo;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -560,15 +478,6 @@
 			buildConfigurations = (
 				00B7ADFA2F67168900224840 /* Debug */,
 				00B7ADFB2F67168900224840 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		00E72FE42F268DCA0010B255 /* Build configuration list for PBXNativeTarget "ExportCities" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				00E72FE52F268DCA0010B255 /* Debug */,
-				00E72FE62F268DCA0010B255 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
