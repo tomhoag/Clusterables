@@ -20,15 +20,16 @@ class ClusterMapViewModel {
     var items: [City] = []
     var visibleItems: [City] = []
     var cameraPosition: MapCameraPosition = .automatic
-    
+
     /// Settings related to clustering behavior
     struct ClusteringSettings {
         var enabled: Bool = true
         var spacing: Double = MapConstants.defaultSpacing
         var onlyVisible: Bool = true
+        var showStatistics: Bool = true
     }
     var clusteringSettings = ClusteringSettings()
-    
+
     /// Data source state for file loading
     struct DataSource {
         var availableFiles: [String] = []
@@ -36,11 +37,14 @@ class ClusterMapViewModel {
         var isLoading: Bool = false
     }
     var dataSource = DataSource()
-    
+
+    /// Persisted position of the statistics overlay across show/hide toggles
+    var statisticsOverlayOffset: CGSize = .zero
+
     // Map state
     var cachedMapProxy: MapProxy?
     var cachedItemsRegion: MKCoordinateRegion?
-    
+
     let defaultRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 44.0, longitude: -85.5),
         span: MKCoordinateSpan(latitudeDelta: 10.0, longitudeDelta: 10.0))

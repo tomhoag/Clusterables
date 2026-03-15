@@ -20,46 +20,76 @@ struct ClusterContentView: View {
 
     @State private var viewModel = ClusterMapViewModel()
     @State private var updateCoordinator = UpdateCoordinator()
-    
+    @State private var showControls = false
+    @State private var containerSize: CGSize = .zero
+    @State private var safeAreaInsets: EdgeInsets = EdgeInsets()
+    @Namespace private var namespace
+
     var clusterManager: ClusterManager<City> { viewModel.clusterManager }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                MapReader { mapProxy in
-                    Map(position: $viewModel.cameraPosition, interactionModes: .all) {
-                        mapAnnotations
-                    }
-                    .padding()
-                    .onAppear {
-                        setupInitialState(mapProxy: mapProxy)
-                    }
-                    .onMapCameraChange { context in
-                        viewModel.cachedMapProxy = mapProxy
-                        viewModel.cachedItemsRegion = context.region
-                        scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
-                    }
-                    .animation(.easeIn, value: viewModel.cameraPosition)
-                    .mapStyle(
-                        .hybrid(
-                            elevation: .automatic,
-                            pointsOfInterest: .excludingAll,
-                            showsTraffic: false
-                        )
-                    )
-                    .mapControls {
-                        MapScaleView()
-                        MapCompass()
-                    }
+        ZStack(alignment: .topLeading) {
+            MapReader { mapProxy in
+                Map(position: $viewModel.cameraPosition, interactionModes: .all) {
+                    mapAnnotations
                 }
-                
-                LoadingOverlayView(
-                    isLoading: viewModel.dataSource.isLoading,
-                    selectedFile: viewModel.dataSource.selectedFile
+                .onAppear {
+                    setupInitialState(mapProxy: mapProxy)
+                }
+                .onMapCameraChange { context in
+                    viewModel.cachedMapProxy = mapProxy
+                    viewModel.cachedItemsRegion = context.region
+                    scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
+                }
+                .animation(.easeIn, value: viewModel.cameraPosition)
+                .mapStyle(
+                    .hybrid(
+                        elevation: .automatic,
+                        pointsOfInterest: .excludingAll,
+                        showsTraffic: false
+                    )
                 )
+                .mapControls {
+                    MapScaleView()
+                    MapCompass()
+                }
             }
-            Divider()
-            ControlsPanelView(
+
+            LoadingOverlayView(
+                isLoading: viewModel.dataSource.isLoading,
+                selectedFile: viewModel.dataSource.selectedFile
+            )
+
+            if viewModel.clusteringSettings.showStatistics {
+                StatisticsOverlayView(
+                    viewModel: viewModel,
+                    containerSize: containerSize,
+                    safeAreaInsets: safeAreaInsets
+                )
+                .padding(4)
+            }
+
+            Button("Settings", systemImage: "slider.horizontal.3") {
+                showControls.toggle()
+            }
+            .buttonStyle(.borderedProminent)
+            .clipShape(.capsule)
+            .matchedTransitionSource(id: "settings", in: namespace)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .padding()
+        }
+        .onGeometryChange(for: CGSize.self) { proxy in
+            proxy.size
+        } action: { newSize in
+            containerSize = newSize
+        }
+        .onGeometryChange(for: EdgeInsets.self) { proxy in
+            proxy.safeAreaInsets
+        } action: { newInsets in
+            safeAreaInsets = newInsets
+        }
+        .sheet(isPresented: $showControls) {
+            ControlsSheetView(
                 viewModel: viewModel,
                 onClusteringToggle: {
                     scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
@@ -78,12 +108,12 @@ struct ClusterContentView: View {
                     handleFileChange(oldFile: oldFile, newFile: newFile)
                 }
             )
-            .padding()
+            .navigationTransition(.zoom(sourceID: "settings", in: namespace))
         }
     }
-    
+
     // MARK: - Map Annotations
-    
+
     @MapContentBuilder
     private var mapAnnotations: some MapContent {
         if viewModel.clusteringSettings.enabled {
@@ -150,7 +180,7 @@ struct ClusterContentView: View {
                 Color.black.opacity(MapConstants.loadingOverlayOpacity)
                     .clipShape(.rect(cornerRadius: MapConstants.loadingOverlayCornerRadius))
                     .allowsHitTesting(false)
-                
+
                 ProgressView {
                     Text("Loading \(selectedFile)")
                         .font(.caption)
@@ -162,71 +192,9 @@ struct ClusterContentView: View {
             }
         }
     }
-    
-    // MARK: - Controls Panel
-    
-    private struct ControlsPanelView: View {
-        @Bindable var viewModel: ClusterMapViewModel
-        let onClusteringToggle: () -> Void
-        let onSpacingChange: () -> Void
-        let onVisibleOnlyToggle: () -> Void
-        let onFileChange: (String, String) -> Void
-        
-        private var visibleCount: Int {
-            viewModel.clusteringSettings.enabled
-                ? viewModel.clusterManager.clusters.reduce(0) { $0 + $1.items.count } + viewModel.clusterManager.outliers.count
-                : viewModel.visibleItems.count
-        }
-        
-        private var cityCount: Int {
-            viewModel.clusterManager.clusters.filter { $0.items.count == 1 }.count
-        }
-        
-        private var clusterCount: Int {
-            viewModel.clusterManager.clusters.filter { $0.items.count > 1 }.count
-        }
-        
-        private var outlierCount: Int {
-            viewModel.clusterManager.outliers.count
-        }
-        
-        var body: some View {
-            HStack(spacing: 24) {
-                StatisticsView(
-                    totalCities: viewModel.items.count,
-                    useClustering: viewModel.clusteringSettings.enabled,
-                    visibleCount: visibleCount,
-                    cityCount: cityCount,
-                    clusterCount: clusterCount,
-                    outlierCount: outlierCount
-                )
-                
-                Spacer()
-                
-                ClusteringControlsView(
-                    useClustering: $viewModel.clusteringSettings.enabled,
-                    spacing: $viewModel.clusteringSettings.spacing,
-                    onlyVisible: viewModel.clusteringSettings.onlyVisible,
-                    onClusteringToggle: onClusteringToggle,
-                    onSpacingChange: onSpacingChange
-                )
-                
-                Divider()
-                    .frame(height: 60)
-                
-                DataSourceControlsView(
-                    availableFiles: viewModel.dataSource.availableFiles,
-                    selectedFile: $viewModel.dataSource.selectedFile,
-                    onlyVisible: $viewModel.clusteringSettings.onlyVisible,
-                    onVisibleOnlyToggle: onVisibleOnlyToggle,
-                    onFileChange: onFileChange
-                )
-            }
-        }
-    }
-    
+
     // MARK: - Setup and Handlers
-    
+
     /// Sets up the initial state when the map first appears.
     ///
     /// This method caches the map proxy, loads available city files from the bundle,
@@ -235,7 +203,7 @@ struct ClusterContentView: View {
     /// - Parameter mapProxy: The MapKit proxy for coordinate conversions
     private func setupInitialState(mapProxy: MapProxy) {
         viewModel.cachedMapProxy = mapProxy
-        
+
         // Populate available files from the `USCities` subdirectory in the bundle
         if let urls = Bundle.main.urls(forResourcesWithExtension: "json", subdirectory: "USCities") {
             let names = urls.map { $0.deletingPathExtension().lastPathComponent }.sorted()
@@ -250,7 +218,7 @@ struct ClusterContentView: View {
                 viewModel.dataSource.selectedFile = "USCities1813"
             }
         }
-        
+
         let selectedFile = viewModel.dataSource.selectedFile
         Task.detached {
             let decoded = Bundle.main.decodeCached([City].self, "USCities/\(selectedFile)") ?? []
@@ -260,7 +228,7 @@ struct ClusterContentView: View {
             }
         }
     }
-    
+
     /// Handles switching between different city data files.
     ///
     /// This method clears the current items, optionally clears clusters if clustering is enabled,
@@ -272,11 +240,11 @@ struct ClusterContentView: View {
     private func handleFileChange(oldFile: String, newFile: String) {
         guard !newFile.isEmpty else { return }
         guard oldFile != newFile else { return }
-        
+
         Task { @MainActor in
             viewModel.dataSource.isLoading = true
             defer { viewModel.dataSource.isLoading = false }
-            
+
             // Clear all annotations so the user sees immediate feedback
             viewModel.items = []
             viewModel.visibleItems = []
@@ -286,10 +254,10 @@ struct ClusterContentView: View {
                     await viewModel.clusterManager.update([], epsilon: epsilon)
                 }
             }
-            
+
             // Yield to let SwiftUI render the cleared state before loading new data
             await Task.yield()
-            
+
             let decoded = await Task.detached {
                 Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
             }.value
@@ -299,7 +267,7 @@ struct ClusterContentView: View {
     }
 
     // MARK: - Computed Regions
-    
+
     /// Computes a map region that encompasses all loaded city items.
     ///
     /// - Returns: A region that fits all items, or the default region if items is empty
@@ -309,7 +277,7 @@ struct ClusterContentView: View {
     }
 
     // MARK: - Update Scheduling
-    
+
     /// Schedules an update of visible items or clusters with debouncing.
     ///
     /// This method determines whether to update clusters or raw items based on
@@ -318,7 +286,10 @@ struct ClusterContentView: View {
     /// - Parameters:
     ///   - withVisibleOnly: If true, filters to only items in the visible map region
     ///   - delayMilliseconds: Debounce delay before executing the update
-    private func scheduleUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = MapConstants.updateDebounceMS) {
+    private func scheduleUpdate(
+        withVisibleOnly: Bool = true,
+        delayMilliseconds: UInt64 = MapConstants.updateDebounceMS
+    ) {
         if viewModel.clusteringSettings.enabled {
             scheduleClusterUpdate(withVisibleOnly: withVisibleOnly, delayMilliseconds: delayMilliseconds)
         } else {
@@ -334,7 +305,10 @@ struct ClusterContentView: View {
     /// - Parameters:
     ///   - withVisibleOnly: If true, filters to only items in the visible map region
     ///   - delayMilliseconds: Debounce delay before executing the update
-    private func scheduleItemsUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = MapConstants.updateDebounceMS) {
+    private func scheduleItemsUpdate(
+        withVisibleOnly: Bool = true,
+        delayMilliseconds: UInt64 = MapConstants.updateDebounceMS
+    ) {
         let itemsSnapshot = viewModel.items
         let regionSnapshot = viewModel.cachedItemsRegion
         let defaultRegionSnapshot = viewModel.defaultRegion
@@ -369,7 +343,10 @@ struct ClusterContentView: View {
     /// - Parameters:
     ///   - withVisibleOnly: If true, clusters only items in the visible map region
     ///   - delayMilliseconds: Debounce delay before executing the update
-    private func scheduleClusterUpdate(withVisibleOnly: Bool = true, delayMilliseconds: UInt64 = MapConstants.updateDebounceMS) {
+    private func scheduleClusterUpdate(
+        withVisibleOnly: Bool = true,
+        delayMilliseconds: UInt64 = MapConstants.updateDebounceMS
+    ) {
         let spacingSnapshot = Int(viewModel.clusteringSettings.spacing)
         let itemsSnapshot = viewModel.items
         let regionSnapshot = viewModel.cachedItemsRegion
