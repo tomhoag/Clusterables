@@ -10,12 +10,17 @@ import simd
 /// ## Example
 /// ```swift
 /// struct City: Clusterable {
+///     let id: UUID
 ///     let coordinate: CLLocationCoordinate2D
 ///     let name: String
+///
+///     public static func == (lhs: City, rhs: City) -> Bool {
+///         lhs.id == rhs.id
+///     }
 /// }
 /// ```
 ///
-/// - Important: Types conforming to `Clusterable` must also conform to ``Equatable`` and `Sendable`
+/// - Important: Types conforming to `Clusterable` must also conform to `Sendable`
 ///   for safe concurrent clustering operations.
 public protocol Clusterable: Equatable, Sendable {
     /// The geographic coordinate of the clusterable item.
@@ -117,24 +122,26 @@ extension Cluster: Hashable {
 ///     @State private var pins: [MapPin] = []
 ///
 ///     var body: some View {
-///         Map {
-///             ForEach(manager.clusters) { cluster in
-///                 if cluster.size == 1 {
-///                     Annotation(cluster.items[0].title, coordinate: cluster.center) {
-///                         Image(systemName: "mappin")
-///                     }
-///                 } else {
-///                     Annotation("\(cluster.size)", coordinate: cluster.center) {
-///                         Circle()
-///                             .fill(.blue)
-///                             .frame(width: 40, height: 40)
+///         MapReader { mapProxy in
+///             Map {
+///                 ForEach(manager.clusters) { cluster in
+///                     if cluster.size == 1 {
+///                         Annotation(cluster.items[0].title, coordinate: cluster.center) {
+///                             Image(systemName: "mappin")
+///                         }
+///                     } else {
+///                         Annotation("\(cluster.size)", coordinate: cluster.center) {
+///                             Circle()
+///                                 .fill(.blue)
+///                                 .frame(width: 40, height: 40)
+///                         }
 ///                     }
 ///                 }
 ///             }
-///         }
-///         .onMapCameraChange { context in
-///             if let epsilon = mapProxy.degrees(fromPixels: 50) {
-///                 await manager.update(pins, epsilon: epsilon)
+///             .onMapCameraChange { context in
+///                 if let epsilon = mapProxy.degrees(fromPixels: 50) {
+///                     await manager.update(pins, epsilon: epsilon)
+///                 }
 ///             }
 ///         }
 ///     }
