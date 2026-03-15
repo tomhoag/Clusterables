@@ -423,20 +423,19 @@ public class ClusterManager<CR: Clusterable> {
             return ([], [])
         }
 
-        // Step 1: Preprocess items into SIMD points and build coordinate mapping
-        let (points, coordIndexMap) = preprocessItems(items)
+        return await Task.detached { [items, epsilon, minimumPoints,
+                                      generation, currentGeneration] () -> ([Cluster<CR>], [CR]) in
 
-        // Bail out if a newer update has started before entering detached task
-        guard currentGeneration.withLock({ $0 }) == generation else {
-            logger.debug("makeClusters generation \(generation) cancelled before DBSCAN")
-            return ([], [])
-        }
+            // Step 1: Preprocess items into SIMD points and build coordinate mapping
+            let (points, coordIndexMap) = preprocessItems(items)
 
-        // Step 2: Run DBSCAN clustering in a detached task
-        let (rawIndexClusters, outlierIndices): ([IndexCluster], IndexCluster) =
-            await Task.detached { [points, coordIndexMap, epsilon, minimumPoints,
-                                   currentGeneration] () -> ([IndexCluster], IndexCluster) in
+            // Bail out if a newer update has started before entering DBSCAN
+            guard currentGeneration.withLock({ $0 }) == generation else {
+                logger.debug("makeClusters generation \(generation) cancelled before DBSCAN")
+                return ([], [])
+            }
 
+            // Step 2: Run DBSCAN clustering
             let clusterer = DBSCANClusterer(values: points)
             let rawClusters: [[SIMD2<Double>]]
             let rawOutliers: [SIMD2<Double>]
@@ -452,26 +451,25 @@ public class ClusterManager<CR: Clusterable> {
             }
 
             // Step 3: Remap SIMD points back to original indices
-            let clusterIndices = remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)
+            let rawIndexClusters = remapPointsToIndices(rawClusters, coordIndexMap: coordIndexMap)
             let outlierIndices = remapPointsToIndices([rawOutliers], coordIndexMap: coordIndexMap).flatMap { $0 }
-            return (clusterIndices, outlierIndices)
+
+            // Bail out before constructing Cluster objects
+            guard currentGeneration.withLock({ $0 }) == generation else {
+                logger.debug("makeClusters generation \(generation) cancelled after DBSCAN")
+                return ([], [])
+            }
+
+            // Step 4: Convert index clusters to Cluster<CR> objects
+            let clusters = rawIndexClusters.compactMap { indices -> Cluster<CR>? in
+                guard !indices.isEmpty else { return nil }
+                let clusterItems = indices.map { items[$0] }
+                return Cluster(items: clusterItems)
+            }
+
+            let outliers = outlierIndices.map { items[$0] }
+
+            return (clusters, outliers)
         }.value
-
-        // Bail out before constructing Cluster objects
-        guard currentGeneration.withLock({ $0 }) == generation else {
-            logger.debug("makeClusters generation \(generation) cancelled after DBSCAN")
-            return ([], [])
-        }
-
-        // Step 4: Convert index clusters to Cluster<CR> objects
-        let clusters = rawIndexClusters.compactMap { indices -> Cluster<CR>? in
-            guard !indices.isEmpty else { return nil }
-            let clusterItems = indices.map { items[$0] }
-            return Cluster(items: clusterItems)
-        }
-
-        let outliers = outlierIndices.map { items[$0] }
-
-        return (clusters, outliers)
     }
 }
