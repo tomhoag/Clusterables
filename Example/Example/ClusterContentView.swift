@@ -277,14 +277,18 @@ struct ClusterContentView: View {
             viewModel.dataSource.isLoading = true
             defer { viewModel.dataSource.isLoading = false }
             
-            viewModel.items = [] // clear all markers from the map
-            
+            // Clear all annotations so the user sees immediate feedback
+            viewModel.items = []
+            viewModel.visibleItems = []
             if viewModel.clusteringSettings.enabled {
                 if let proxy = viewModel.cachedMapProxy,
                    let epsilon = proxy.degrees(fromPixels: Int(viewModel.clusteringSettings.spacing)) {
                     await viewModel.clusterManager.update([], epsilon: epsilon)
                 }
             }
+            
+            // Yield to let SwiftUI render the cleared state before loading new data
+            await Task.yield()
             
             let decoded = await Task.detached {
                 Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []

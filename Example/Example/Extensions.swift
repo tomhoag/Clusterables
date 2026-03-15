@@ -12,8 +12,8 @@ import os
 // Add a small Bundle helper to decode JSON files from the bundle into Decodable types.
 extension Bundle {
 
-    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Example", category: "BundleDecode")
-    private static var _decodeCache = [String: Any]()
+    private nonisolated static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Example", category: "BundleDecode")
+    private nonisolated(unsafe) static var _decodeCache = [String: Any]()
 
     /// Decodes a JSON resource from the bundle, returning a cached result if available.
     ///
@@ -21,7 +21,7 @@ extension Bundle {
     ///   - type: The `Decodable` type to decode into
     ///   - resource: The resource name, optionally including a subdirectory path and `.json` extension
     /// - Returns: The decoded value, or `nil` if the resource could not be found or decoded
-    func decodeCached<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
+    nonisolated func decodeCached<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
         if let cached = Bundle._decodeCache[resource] as? T {
             return cached
         }
@@ -39,7 +39,7 @@ extension Bundle {
     ///   - type: The `Decodable` type to decode into
     ///   - resource: The resource name, optionally including a subdirectory path and `.json` extension
     /// - Returns: The decoded value, or `nil` if the resource could not be found or decoded
-    func decode<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
+    nonisolated func decode<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
         // Allow caller to pass either "MichiganCities.json", "USCities/Name.json" or just "MichiganCities"
         var resourcePath = resource
         var subdirectory: String? = nil
