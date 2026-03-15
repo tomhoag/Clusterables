@@ -93,7 +93,7 @@ struct ClusterContentView: View {
                         CityAnnotationView()
                     }
                 } else {
-                    Annotation("\(cluster.size) cities", coordinate: cluster.center) {
+                    Annotation("", coordinate: cluster.center) {
                         ClusterAnnotationView(size: cluster.size)
                     }
                 }
@@ -382,10 +382,20 @@ struct ClusterContentView: View {
                 }
 
                 await MainActor.run {
+                    self.viewModel.dataSource.isLoading = true
+                }
+
+                await MainActor.run {
                     guard let proxy = self.viewModel.cachedMapProxy,
-                          let epsilon = proxy.degrees(fromPixels: spacingSnapshot) else { return }
+                          let epsilon = proxy.degrees(fromPixels: spacingSnapshot) else {
+                        Task { @MainActor in
+                            self.viewModel.dataSource.isLoading = false
+                        }
+                        return
+                    }
 
                     Task { @MainActor in
+                        defer { self.viewModel.dataSource.isLoading = false }
                         await self.viewModel.clusterManager.update(
                             sourceItems,
                             epsilon: epsilon
