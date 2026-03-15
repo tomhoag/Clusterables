@@ -251,9 +251,13 @@ struct ClusterContentView: View {
             }
         }
         
-        Task { @MainActor in
-            viewModel.items = Bundle.main.decodeCached([City].self, "USCities/\(viewModel.dataSource.selectedFile)") ?? []
-            viewModel.cameraPosition = .region(itemsMapRegion)
+        let selectedFile = viewModel.dataSource.selectedFile
+        Task.detached {
+            let decoded = Bundle.main.decodeCached([City].self, "USCities/\(selectedFile)") ?? []
+            await MainActor.run {
+                self.viewModel.items = decoded
+                self.viewModel.cameraPosition = .region(self.itemsMapRegion)
+            }
         }
     }
     
@@ -282,7 +286,10 @@ struct ClusterContentView: View {
                 }
             }
             
-            viewModel.items = Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
+            let decoded = await Task.detached {
+                Bundle.main.decode([City].self, "USCities/\(newFile)") ?? []
+            }.value
+            viewModel.items = decoded
             viewModel.cameraPosition = .region(itemsMapRegion)
         }
     }
