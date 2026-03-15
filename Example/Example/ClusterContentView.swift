@@ -72,7 +72,7 @@ struct ClusterContentView: View {
             Button("Settings", systemImage: "slider.horizontal.3") {
                 showControls.toggle()
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.glassProminent)
             .clipShape(.capsule)
             .matchedTransitionSource(id: "settings", in: namespace)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)

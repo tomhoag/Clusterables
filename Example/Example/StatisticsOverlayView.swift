@@ -48,7 +48,8 @@ struct StatisticsOverlayView: View {
             outlierCount: outlierCount
         )
         .padding()
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 12))
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        .contentShape(.rect(cornerRadius: 12))
         .onGeometryChange(for: CGSize.self) { proxy in
             proxy.size
         } action: { newSize in
