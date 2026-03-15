@@ -87,7 +87,7 @@ struct ClusterContentView: View {
                         CityAnnotationView()
                     }
                 } else {
-                    Annotation("", coordinate: cluster.center) {
+                    Annotation("\(cluster.size) cities", coordinate: cluster.center) {
                         ClusterAnnotationView(size: cluster.size)
                     }
                 }

@@ -23,6 +23,8 @@ enum MapRegionHelper {
     }
     
 
+    /// Resolves the region to use for filtering, preferring a cached region
+    /// and falling back to computing a bounding region from items.
     ///
     /// - Parameters:
     ///   - cached: A previously cached map region, if available
@@ -49,8 +51,6 @@ enum MapRegionHelper {
     ///   - items: The array of items to filter
     ///   - region: The map region to filter within
     /// - Returns: Array of items that fall within the specified region
-    /// Resolves the region to use for filtering, preferring a cached region
-    /// and falling back to computing a bounding region from items.
     nonisolated static func filterItems<T: Clusterable>(_ items: [T], in region: MKCoordinateRegion) -> [T] {
         let centerLon = normalizeLongitude(region.center.longitude)
         let lonDelta = region.span.longitudeDelta

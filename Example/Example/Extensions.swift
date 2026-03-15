@@ -15,6 +15,12 @@ extension Bundle {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Example", category: "BundleDecode")
     private static var _decodeCache = [String: Any]()
 
+    /// Decodes a JSON resource from the bundle, returning a cached result if available.
+    ///
+    /// - Parameters:
+    ///   - type: The `Decodable` type to decode into
+    ///   - resource: The resource name, optionally including a subdirectory path and `.json` extension
+    /// - Returns: The decoded value, or `nil` if the resource could not be found or decoded
     func decodeCached<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
         if let cached = Bundle._decodeCache[resource] as? T {
             return cached
@@ -24,6 +30,15 @@ extension Bundle {
         return decoded
     }
 
+    /// Decodes a JSON resource from the bundle without caching.
+    ///
+    /// The resource string may be a bare name (`"MichiganCities"`), include the `.json`
+    /// extension (`"MichiganCities.json"`), or contain a subdirectory path (`"USCities/Name.json"`).
+    ///
+    /// - Parameters:
+    ///   - type: The `Decodable` type to decode into
+    ///   - resource: The resource name, optionally including a subdirectory path and `.json` extension
+    /// - Returns: The decoded value, or `nil` if the resource could not be found or decoded
     func decode<T: Decodable>(_ type: T.Type, _ resource: String) -> T? {
         // Allow caller to pass either "MichiganCities.json", "USCities/Name.json" or just "MichiganCities"
         var resourcePath = resource
