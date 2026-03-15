@@ -61,12 +61,18 @@ struct ClusterContentView: View {
             Divider()
             ControlsPanelView(
                 viewModel: viewModel,
+                onClusteringToggle: {
+                    scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
+                },
                 onSpacingChange: {
                     Task { @MainActor in
                         viewModel.dataSource.isLoading = true
                         defer { viewModel.dataSource.isLoading = false }
                         scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
                     }
+                },
+                onVisibleOnlyToggle: {
+                    scheduleUpdate(withVisibleOnly: viewModel.clusteringSettings.onlyVisible)
                 },
                 onFileChange: { oldFile, newFile in
                     handleFileChange(oldFile: oldFile, newFile: newFile)
@@ -161,7 +167,9 @@ struct ClusterContentView: View {
     
     private struct ControlsPanelView: View {
         @Bindable var viewModel: ClusterMapViewModel
+        let onClusteringToggle: () -> Void
         let onSpacingChange: () -> Void
+        let onVisibleOnlyToggle: () -> Void
         let onFileChange: (String, String) -> Void
         
         private var visibleCount: Int {
@@ -199,6 +207,7 @@ struct ClusterContentView: View {
                     useClustering: $viewModel.clusteringSettings.enabled,
                     spacing: $viewModel.clusteringSettings.spacing,
                     onlyVisible: viewModel.clusteringSettings.onlyVisible,
+                    onClusteringToggle: onClusteringToggle,
                     onSpacingChange: onSpacingChange
                 )
                 
@@ -209,6 +218,7 @@ struct ClusterContentView: View {
                     availableFiles: viewModel.dataSource.availableFiles,
                     selectedFile: $viewModel.dataSource.selectedFile,
                     onlyVisible: $viewModel.clusteringSettings.onlyVisible,
+                    onVisibleOnlyToggle: onVisibleOnlyToggle,
                     onFileChange: onFileChange
                 )
             }

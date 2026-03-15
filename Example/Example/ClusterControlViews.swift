@@ -52,6 +52,7 @@ struct ClusteringControlsView: View {
     @Binding var useClustering: Bool
     @Binding var spacing: Double
     let onlyVisible: Bool
+    let onClusteringToggle: () -> Void
     let onSpacingChange: () -> Void
     
     var body: some View {
@@ -59,6 +60,9 @@ struct ClusteringControlsView: View {
 
             Toggle("Clustering", isOn: $useClustering)
                 .fixedSize()
+                .onChange(of: useClustering) { _, _ in
+                    onClusteringToggle()
+                }
 
             if useClustering {
                 VStack(alignment: .trailing, spacing: 8) {
@@ -91,6 +95,7 @@ struct DataSourceControlsView: View {
     let availableFiles: [String]
     @Binding var selectedFile: String
     @Binding var onlyVisible: Bool
+    let onVisibleOnlyToggle: () -> Void
     let onFileChange: (String, String) -> Void
     
     var body: some View {
@@ -113,6 +118,9 @@ struct DataSourceControlsView: View {
             
             Toggle("Visible Only", isOn: $onlyVisible)
                 .fixedSize()
+                .onChange(of: onlyVisible) { _, _ in
+                    onVisibleOnlyToggle()
+                }
         }
     }
 }
@@ -137,6 +145,7 @@ struct DataSourceControlsView: View {
         useClustering: $useClustering,
         spacing: $spacing,
         onlyVisible: true,
+        onClusteringToggle: {},
         onSpacingChange: {}
     )
     .padding()
@@ -150,6 +159,7 @@ struct DataSourceControlsView: View {
         availableFiles: ["USCities938", "USCities1813", "USCities6463"],
         selectedFile: $selectedFile,
         onlyVisible: $onlyVisible,
+        onVisibleOnlyToggle: {},
         onFileChange: { _, _ in }
     )
     .padding()
